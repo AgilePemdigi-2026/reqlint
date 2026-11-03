@@ -36,7 +36,7 @@ export default function RegisterPage() {
     const result = await register(parsed.data);
     setBusy(false);
     if (!result.ok) return setErrors({ email: result.error });
-    router.replace('/editor');
+    router.replace('/login');
   }
 
   const soon = (e: React.MouseEvent) => {

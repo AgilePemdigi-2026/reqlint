@@ -36,7 +36,6 @@ export async function register(input: { name: string; email: string; password: s
   }
   const user: User = { name: input.name.trim(), email, passwordHash: await hashPassword(email, input.password) };
   usersStore.set([...usersStore.get(), user]);
-  sessionStore.set(email);
   return { ok: true };
 }
 
