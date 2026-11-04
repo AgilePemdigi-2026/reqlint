@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -23,14 +23,23 @@ export default function LoginPage() {
     if (!parsed.success) return setErrors(fieldErrors(parsed.error));
 
     setBusy(true);
+    setErrors({});
     const result = await login(parsed.data.email, parsed.data.password);
     setBusy(false);
     if (!result.ok) return setErrors({ form: result.error });
+    
+    toast('Login berhasil. Mengalihkan ke editor...');
     router.replace('/editor');
   }
 
   async function onDemo() {
-    await loginDemo();
+    setBusy(true);
+    setErrors({});
+    const result = await loginDemo();
+    setBusy(false);
+    if (!result.ok) return setErrors({ form: result.error });
+    
+    toast('Masuk menggunakan akun demo.');
     router.replace('/editor');
   }
 
@@ -41,17 +50,25 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={onDemo}
-            className="inline-flex items-center gap-2 text-[14px] font-medium text-muted transition hover:text-ink"
+            disabled={busy}
+            className="inline-flex items-center gap-2 text-[14px] font-medium text-muted transition hover:text-ink disabled:opacity-50"
           >
-            Gunakan akun demo <ArrowRight size={15} aria-hidden />
+            {busy ? (
+              <>
+                <Loader2 size={15} className="animate-spin" aria-hidden /> Menghubungkan...
+              </>
+            ) : (
+              <>
+                Gunakan akun demo <ArrowRight size={15} aria-hidden />
+              </>
+            )}
           </button>
           <p className="flex items-center gap-1.5 text-[12px] text-muted">
-            <ShieldCheck size={14} aria-hidden /> Pratinjau interaktif. Akun dan data hanya disimpan di browser ini.
+            <ShieldCheck size={14} aria-hidden /> Terhubung dengan REST API Backend FastAPI &amp; JWT Token.
           </p>
         </div>
       }
     >
-
       <h1 className="text-[30px] font-bold leading-tight tracking-tight">Selamat datang kembali</h1>
       <p className="mt-2.5 text-[15px] text-muted">Masuk untuk melanjutkan ke ruang kerja Anda.</p>
 
@@ -74,7 +91,7 @@ export default function LoginPage() {
         <div className="flex justify-end">
           <button
             type="button"
-            onClick={() => toast('Reset kata sandi belum tersedia di pratinjau ini.')}
+            onClick={() => toast('Hubungi administrator untuk bantuan reset kata sandi.')}
             className="text-[13.5px] font-medium text-accent hover:underline"
           >
             Lupa kata sandi?
@@ -87,9 +104,9 @@ export default function LoginPage() {
           </p>
         )}
 
-        <button type="submit" disabled={busy} className="btn-primary relative h-[52px] w-full text-[16px]">
-          Masuk
-          <ArrowRight size={18} className="absolute right-5" aria-hidden />
+        <button type="submit" disabled={busy} className="btn-primary relative h-[52px] w-full text-[16px] disabled:opacity-60">
+          {busy ? 'Memproses...' : 'Masuk'}
+          {!busy && <ArrowRight size={18} className="absolute right-5" aria-hidden />}
         </button>
       </form>
 

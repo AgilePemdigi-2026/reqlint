@@ -2,23 +2,23 @@
 
 Automated Quality Assurance & Ambiguity Detection Tool exclusively for **Agile User Stories** based on the **INVEST Criteria** (*Independent, Negotiable, Valuable, Estimable, Small, Testable*) and the **Connextra Template** (*Role - Action - Benefit*).
 
-> 📢 **Laporan Progres Proyek (Minggu ke-1)**:  
-> Dokumentasi lengkap pencapaian kepemimpinan teknis (*Project Manager*) dan rekayasa kecerdasan buatan (*AI/NLP Engineer 1*) dapat dibaca pada berkas:  
-> 👉 **[PROJECT_REPORT.md](file:///d:/portfolio/AI/reqlint/PROJECT_REPORT.md)**
+> 📢 **Pusat Dokumentasi Terpadu**:  
+> Seluruh dokumentasi proyek, spesifikasi sistem (SRS), analisis proses bisnis (BPMN), presentasi (Pitch Deck), arsitektur, dan pedoman anotasi telah dikonsolidasikan dalam format Markdown di:  
+> 👉 **[docs/README.md](file:///d:/portfolio/AI/reqlint/docs/README.md)** | **[Laporan Proyek](file:///d:/portfolio/AI/reqlint/docs/laporan_proyek.md)**
 
 ---
 
-## 🚀 Status Capaian Minggu ke-1 (Sprint 1 Summary)
+## 🚀 Status Capaian Sistem
 
 | Modul / Domain | Artefak & Capaian Kunci | Status |
 |---|---|:---:|
-| **Metodologi & Pedoman Anotasi** | [pedoman_anotasi_invest.md](file:///d:/portfolio/AI/reqlint/pm-docs/rubrics/pedoman_anotasi_invest.md) (v0.9) & [invest_criteria.json](file:///d:/portfolio/AI/reqlint/pm-docs/rubrics/invest_criteria.json) | ✅ Selesai |
+| **Dokumentasi Terpadu** | [docs/](file:///d:/portfolio/AI/reqlint/docs/) (SRS, BPMN, Pitch Deck, Data Mockup, Arsitektur, Pedoman INVEST) | ✅ Lengkap |
+| **Metodologi & Pedoman Anotasi** | [pedoman_anotasi_invest.md](file:///d:/portfolio/AI/reqlint/docs/pedoman_anotasi_invest.md) (v0.9) & [invest_criteria.json](file:///d:/portfolio/AI/reqlint/pm-docs/rubrics/invest_criteria.json) | ✅ Selesai |
 | **Korpus Data 1.000 User Stories** | 500 ID + 500 EN ([invest_corpus_1000.csv](file:///d:/portfolio/AI/reqlint/ai-engine/data/invest_corpus_1000.csv)) dari Dalpiaz & PPL | 🚀 Selesai |
 | **Engine Perturbasi Terkontrol** | Modul injeksi cacat ortogonal I, N, V, E, S, T ([perturbation_engine.py](file:///d:/portfolio/AI/reqlint/ai-engine/data_pipeline/perturbation_engine.py)) | ✅ Selesai |
 | **Isolasi Evaluasi (Test Set)** | 100% Cerita Alami (0% Sintetis / 0% Perturbasi pada Test Set) | ✅ Terverifikasi |
 | **Core NLP Engine Dwibahasa** | Deteksi Connextra, INVEST Smells, & Acceptance Criteria ([nlp_pipeline.py](file:///d:/portfolio/AI/reqlint/ai-engine/ai_module/nlp_pipeline.py)) | ✅ Selesai |
-| **Pengujian Unit Otomatis** | 8/8 Unit Tests Lolos 100% (pytest di `ai-engine` & `backend`) | ✅ 100% Hijau |
-| **Starter Backend & Frontend** | FastAPI User Story Schema ([requirements.py](file:///d:/portfolio/AI/reqlint/backend/app/api/v1/endpoints/requirements.py)) & Next.js Editor ([RequirementEditor.tsx](file:///d:/portfolio/AI/reqlint/frontend-qa/src/components/editor/RequirementEditor.tsx)) | ✅ Siap Pakai |
+| **Backend & Frontend Full-Stack** | FastAPI User Story Schema ([requirements.py](file:///d:/portfolio/AI/reqlint/backend/app/api/v1/endpoints/requirements.py)) & Next.js Editor ([RequirementEditor.tsx](file:///d:/portfolio/AI/reqlint/frontend-qa/src/components/editor/RequirementEditor.tsx)) | ✅ Siap Pakai |
 
 ---
 
@@ -26,12 +26,12 @@ Automated Quality Assurance & Ambiguity Detection Tool exclusively for **Agile U
 
 Each team member has a dedicated, isolated workspace directory:
 
-| Member & Role | Workspace Directory | Quickstart Guide |
+| Member & Role | Workspace Directory | Documentation |
 |---|---|---|
-| **Member 1: PM & Architect** | `pm-docs/` | [pm-docs/architecture/architecture_overview.md](file:///d:/portfolio/AI/reqlint/pm-docs/architecture/architecture_overview.md) |
-| **Member 2: AI / NLP Engineer** | `ai-engine/` | [ai-engine/README.md](file:///d:/portfolio/AI/reqlint/ai-engine/README.md) |
-| **Member 3: Backend Engineer** | `backend/` | [backend/README.md](file:///d:/portfolio/AI/reqlint/backend/README.md) |
-| **Member 4: Frontend + QA Engineer** | `frontend-qa/` | [frontend-qa/README.md](file:///d:/portfolio/AI/reqlint/frontend-qa/README.md) |
+| **Member 1: PM & Architect** | `pm-docs/` | [docs/arsitektur_dan_integrasi.md](file:///d:/portfolio/AI/reqlint/docs/arsitektur_dan_integrasi.md) |
+| **Member 2: AI / NLP Engineer** | `ai-engine/` | [docs/pedoman_anotasi_invest.md](file:///d:/portfolio/AI/reqlint/docs/pedoman_anotasi_invest.md) |
+| **Member 3: Backend Engineer** | `backend/` | [docs/arsitektur_dan_integrasi.md](file:///d:/portfolio/AI/reqlint/docs/arsitektur_dan_integrasi.md) |
+| **Member 4: Frontend + QA Engineer** | `frontend-qa/` | [docs/mockup_data.md](file:///d:/portfolio/AI/reqlint/docs/mockup_data.md) |
 
 
 ---
