@@ -1,28 +1,83 @@
 'use client';
 
-import { ArrowRight, History, Search, Trash2 } from 'lucide-react';
+import { ArrowRight, History, Search, Trash2, X } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { PageHeader } from '@/components/app-shell';
 import { useToast } from '@/components/providers';
 import { analyze } from '@/lib/analyzer';
+import type { Category, Grade } from '@/lib/analyzer';
 import { clearAudits, deleteAudit, useAudits } from '@/lib/audits';
-import { GRADE_BADGE, GRADE_LABEL, formatDate } from '@/lib/format';
+import { CATEGORY_LABEL, GRADE_BADGE, GRADE_LABEL, formatDate } from '@/lib/format';
+
+type DateFilter = 'all' | 'today' | '7d' | '30d';
+type LangFilter = 'all' | 'id' | 'en';
+type SortKey = 'newest' | 'oldest' | 'score-desc' | 'score-asc';
+
+const DATE_OPTIONS: Array<{ value: DateFilter; label: string }> = [
+  { value: 'all', label: 'Semua tanggal' },
+  { value: 'today', label: 'Hari ini' },
+  { value: '7d', label: '7 hari terakhir' },
+  { value: '30d', label: '30 hari terakhir' },
+];
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function inDateRange(iso: string, range: DateFilter): boolean {
+  if (range === 'all') return true;
+  if (range === 'today') return new Date(iso).toDateString() === new Date().toDateString();
+  return Date.now() - new Date(iso).getTime() <= (range === '7d' ? 7 : 30) * DAY_MS;
+}
 
 export default function HistoryPage() {
   const audits = useAudits();
   const toast = useToast();
   const [query, setQuery] = useState('');
+  const [dateRange, setDateRange] = useState<DateFilter>('all');
+  const [grade, setGrade] = useState<Grade | 'all'>('all');
+  const [lang, setLang] = useState<LangFilter>('all');
+  const [category, setCategory] = useState<Category | 'all'>('all');
+  const [sort, setSort] = useState<SortKey>('newest');
+
+  const activeFilters =
+    (dateRange !== 'all' ? 1 : 0) + (grade !== 'all' ? 1 : 0) + (lang !== 'all' ? 1 : 0) + (category !== 'all' ? 1 : 0);
+
+  const resetFilters = () => {
+    setQuery('');
+    setDateRange('all');
+    setGrade('all');
+    setLang('all');
+    setCategory('all');
+  };
 
   const rows = useMemo(
     () => audits.map((a) => ({ audit: a, result: analyze(a.text, a.language) })),
     [audits],
   );
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter(({ audit }) => `${audit.id} ${audit.title} ${audit.text}`.toLowerCase().includes(q));
-  }, [rows, query]);
+    const list = rows.filter(({ audit, result }) => {
+      if (q && !`${audit.id} ${audit.title} ${audit.text}`.toLowerCase().includes(q)) return false;
+      if (!inDateRange(audit.createdAt, dateRange)) return false;
+      if (grade !== 'all' && result.grade !== grade) return false;
+      if (lang !== 'all' && audit.language !== lang) return false;
+      if (category !== 'all' && !result.findings.some((f) => f.category === category)) return false;
+      return true;
+    });
+    return [...list].sort((a, b) => {
+      switch (sort) {
+        case 'oldest':
+          return a.audit.createdAt.localeCompare(b.audit.createdAt);
+        case 'score-desc':
+          return b.result.score - a.result.score;
+        case 'score-asc':
+          return a.result.score - b.result.score;
+        default:
+          return b.audit.createdAt.localeCompare(a.audit.createdAt);
+      }
+    });
+  }, [rows, query, dateRange, grade, lang, category, sort]);
 
   const remove = (id: string) => {
     deleteAudit(id);
@@ -40,7 +95,11 @@ export default function HistoryPage() {
       <PageHeader
         crumb="Workspace / Riwayat"
         title="History Audit"
-        subtitle="Seluruh audit yang pernah Anda jalankan di browser ini."
+        subtitle={
+          audits.length > 0
+            ? `Menampilkan ${visible.length} dari ${audits.length} audit di browser ini.`
+            : 'Seluruh audit yang pernah Anda jalankan di browser ini.'
+        }
         right={
           <div className="flex items-center gap-2.5">
             <label className="relative">
@@ -62,6 +121,49 @@ export default function HistoryPage() {
         }
       />
 
+      {audits.length > 0 && (
+        <div className="card mb-5 flex flex-wrap items-center gap-3 p-3">
+          <select aria-label="Filter tanggal" value={dateRange} onChange={(e) => setDateRange(e.target.value as DateFilter)} className="field h-10 w-auto rounded-full px-4 text-[13px]">
+            {DATE_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+
+          <select aria-label="Filter grade" value={grade} onChange={(e) => setGrade(e.target.value as Grade | 'all')} className="field h-10 w-auto rounded-full px-4 text-[13px]">
+            <option value="all">Semua grade</option>
+            {(Object.keys(GRADE_LABEL) as Grade[]).map((g) => (
+              <option key={g} value={g}>{GRADE_LABEL[g]}</option>
+            ))}
+          </select>
+
+          <select aria-label="Filter bahasa" value={lang} onChange={(e) => setLang(e.target.value as LangFilter)} className="field h-10 w-auto rounded-full px-4 text-[13px]">
+            <option value="all">Semua bahasa</option>
+            <option value="id">Indonesia</option>
+            <option value="en">English</option>
+          </select>
+
+          <select aria-label="Filter kategori temuan" value={category} onChange={(e) => setCategory(e.target.value as Category | 'all')} className="field h-10 w-auto rounded-full px-4 text-[13px]">
+            <option value="all">Semua kategori temuan</option>
+            {(Object.keys(CATEGORY_LABEL) as Category[]).map((c) => (
+              <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>
+            ))}
+          </select>
+
+          <select aria-label="Urutkan" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="field h-10 w-auto rounded-full px-4 text-[13px] sm:ml-auto">
+            <option value="newest">Terbaru</option>
+            <option value="oldest">Terlama</option>
+            <option value="score-desc">Skor tertinggi</option>
+            <option value="score-asc">Skor terendah</option>
+          </select>
+
+          {(activeFilters > 0 || query) && (
+            <button type="button" onClick={resetFilters} className="btn-ghost h-10 px-4 text-[13px]">
+              <X size={14} aria-hidden /> Reset{activeFilters > 0 ? ` (${activeFilters})` : ''}
+            </button>
+          )}
+        </div>
+      )}
+
       {audits.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 px-8 py-16 text-center">
           <History size={30} strokeWidth={1.5} className="text-muted" aria-hidden />
@@ -75,7 +177,10 @@ export default function HistoryPage() {
         </div>
       ) : visible.length === 0 ? (
         <div className="card px-8 py-12 text-center text-[14px] text-muted">
-          Tidak ada audit yang cocok dengan &quot;{query}&quot;.
+          Tidak ada audit yang cocok dengan pencarian atau filter ini.{' '}
+          <button type="button" onClick={resetFilters} className="font-medium text-accent hover:underline">
+            Reset filter
+          </button>
         </div>
       ) : (
         <ul className="card divide-y divide-line/[0.07] overflow-hidden p-2">
