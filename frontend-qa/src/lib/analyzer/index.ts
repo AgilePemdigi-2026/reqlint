@@ -4,6 +4,7 @@ export { splitClauses, countWords } from './clauses';
 export { revise, acceptanceCriteria } from './revise';
 export { diffWords, diffLines, type DiffOp } from './diff';
 export { STORY } from './rules';
+export { adaptBackendAuditToAnalysisResult } from './adapter';
 
 import { splitClauses } from './clauses';
 import { STORY } from './rules';
