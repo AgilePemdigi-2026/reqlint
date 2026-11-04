@@ -11,11 +11,15 @@ export const registerSchema = z
   .object({
     name: z.string().trim().min(2, 'Nama minimal 2 karakter.').max(60, 'Nama terlalu panjang.'),
     email: z.string().trim().min(1, 'Email wajib diisi.').email('Format email tidak valid.'),
-    password: z.string().min(8, 'Kata sandi minimal 8 karakter.'),
+    password: z
+      .string()
+      .min(8, 'Kata sandi minimal 8 karakter.')
+      .regex(/[A-Za-z]/, 'Kata sandi harus memuat minimal 1 huruf.')
+      .regex(/\d/, 'Kata sandi harus memuat minimal 1 angka.'),
     confirm: z.string().min(1, 'Konfirmasi kata sandi wajib diisi.'),
     terms: z.literal(true, { message: 'Anda harus menyetujui ketentuan layanan.' }),
   })
-  .refine((v) => v.password === v.confirm, { path: ['confirm'], message: 'Kata sandi tidak sama.' });
+  .refine((v) => v.password === v.confirm, { path: ['confirm'], message: 'Konfirmasi kata sandi tidak cocok.' });
 
 export const analyzeRequestSchema = z.object({
   text: z.string().min(1, 'Teks tidak boleh kosong.').max(50_000, 'Teks terlalu panjang (maks. 50.000 karakter).'),

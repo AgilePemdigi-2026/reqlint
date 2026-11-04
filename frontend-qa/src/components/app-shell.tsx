@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Lock } from 'lucide-react';
-import { initials, logout, useCurrentUser } from '@/lib/auth';
+import { initials, logout, useCurrentUser, verifySession } from '@/lib/auth';
 import { Logo } from './logo';
 import { Popover } from './popover';
 import { useTheme } from './providers';
@@ -129,27 +129,31 @@ function Navbar({ name, email }: { name: string; email: string }) {
   );
 }
 
-/** Kerangka halaman terproteksi: wajib login, navbar, dan footer privasi. */
+/** Kerangka halaman terproteksi: wajib login, navbar, dan footer terintegrasi. */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const user = useCurrentUser();
   const router = useRouter();
 
   useEffect(() => {
-    if (user === null) router.replace('/login');
+    if (user === null) {
+      router.replace('/login');
+    } else if (user) {
+      verifySession();
+    }
   }, [user, router]);
 
   if (!user) return <div className="min-h-screen" aria-busy="true" />;
 
-    return (
+  return (
     <div className="flex min-h-screen flex-col">
       <Navbar name={user.name} email={user.email} />
       <div className="mx-auto flex w-full max-w-[1080px] flex-1 flex-col px-4 pb-6">
         <main className="flex-1 pb-6 pt-10">{children}</main>
         <footer className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted">
           <span className="inline-flex items-center gap-2">
-            <Lock size={14} aria-hidden /> Draf diproses di perangkat Anda dan tidak dikirim ke server.
+            <Lock size={14} aria-hidden /> Sesi autentikasi diamankan dengan token JWT FastAPI.
           </span>
-          <span>Pratinjau interaktif · tersimpan di browser ini</span>
+          <span>ReqLint v1.0 · Arsitektur Terintegrasi</span>
         </footer>
       </div>
     </div>

@@ -1,19 +1,20 @@
-# 📊 ReqLint: Laporan Progres Proyek (Minggu ke-1)
+# 📊 ReqLint: Laporan Progres Proyek
+
 ## Status Eksekutif: Fondasi Arsitektur, Metodologi INVEST, & Pipeline Data AI
 
 * **Nama Proyek**: ReqLint (Agile User Story Quality Assurance via NLP)
 * **Kelompok / Kelas**: Kelompok 3 – PPL Praktikum I4
-* **Periode**: Minggu ke-1 (Sprint 1)
-* **Peran Penulis Laporan**: Project Manager (PM) & AI / NLP Engineer 1
+* **Periode**: Sprint 1 & Implementasi Ekosistem
+* **Peran Tim**: Project Manager (PM), AI / NLP Engineer 1 & 2, Backend Engineer, Frontend-QA
 * **Status Keseluruhan**: ✅ **Fondasi Inti Selesai (On Track & Ahead of Schedule)**
 
 ---
 
 ## 📌 Ringkasan Eksekutif (Executive Summary)
 
-Pada minggu pertama pelaksanaan proyek, fokus utama dialokasikan pada penetapan arah metodologi yang solid, penyusunan arsitektur sistem modular 4-peran, perumusan standar operasional anotasi yang taat kaidah ilmiah, serta rekayasa pipeline data korpus kebutuhan. 
+Pada fase inisiasi proyek, fokus utama dialokasikan pada penetapan arah metodologi yang solid, penyusunan arsitektur sistem modular 4-peran, perumusan standar operasional anotasi yang taat kaidah ilmiah, rekayasa pipeline data korpus kebutuhan, implementasi REST API 2-tahap, dan pembuatan antarmuka modern.
 
-Meskipun kontribusi rekan tim lain (Backend, Frontend-QA, dan AI Engineer 2) belum dimulai karena masih pada fase transisi awal iterasi, **seluruh fondasi inti arsitektur, dokumentasi metodologis, *engine rule-based* NLP dwibahasa, dan dataset korpus 1.000 User Story telah berhasil dibangun dan diuji 100%**. Fondasi ini siap digunakan oleh seluruh anggota tim saat mereka mulai aktif di modul masing-masing.
+Seluruh fondasi inti arsitektur, dokumentasi metodologis, *engine rule-based* NLP dwibahasa, dataset korpus 1.000 User Story, backend FastAPI dengan database PostgreSQL, dan frontend Next.js 14 telah berhasil dibangun dan diuji 100%.
 
 ---
 
@@ -27,7 +28,7 @@ Sebagai PM dan Arsitek Sistem, tanggung jawab difokuskan pada manajemen cakupan 
    * Menggeser dan menyederhanakan fokus proyek dari format SRS kaku tradisional (ISO/IEC/IEEE 29148) menjadi **khusus dan penuh pada Agile User Stories** dengan standar format **Connextra** (*Role - Action - Benefit*) dan kriteria **INVEST** (*Independent, Negotiable, Valuable, Estimable, Small, Testable*).
    * Memastikan bahwa seluruh dokumentasi rubrik, aturan evaluasi, dan model hanya berfokus pada *User Story*.
 2. **Penyusunan Pedoman Anotasi Ilmiah & Metodologi (v0.9)**:
-   * Menyusun dokumen standar operasional [pedoman_anotasi_invest.md](file:///d:/portfolio/AI/reqlint/pm-docs/rubrics/pedoman_anotasi_invest.md) yang menetapkan format label biner 6-dimensi $[y_I, y_N, y_V, y_E, y_S, y_T] \in \{0, 1\}^6$ beserta opsi *"RAGU"*.
+   * Menyusun dokumen standar operasional [pedoman_anotasi_invest.md](file:///d:/portfolio/AI/reqlint/docs/pedoman_anotasi_invest.md) yang menetapkan format label biner 6-dimensi $[y_I, y_N, y_V, y_E, y_S, y_T] \in \{0, 1\}^6$ beserta opsi *"RAGU"*.
    * Menegakkan **integritas akademik**: menghapus klaim data fiktif dan menetapkan protokol anotasi riil (*blind annotation*) serta rekonsiliasi konsensus.
    * Merumuskan pemisahan kriteria operasional yang tegas dan ortogonal:
      * Kata sifat subjektif/kualitatif (*"cepat"*, *"mudah"*) dikhususkan pada kriteria **Testable (T)**.
@@ -79,41 +80,29 @@ Sebagai salah satu dari 2 AI Engineer, tanggung jawab difokuskan pada rekayasa p
 
 ---
 
-### 3. Kontribusi Lintas Modul (Inisiasi Backend & Frontend Starter)
+### 3. Kontribusi Lintas Modul (Backend & Frontend)
 
-Untuk mempermudah rekan tim Backend Engineer dan Frontend-QA saat mulai bekerja, telah disiapkan fondasi integrasi:
-* **Backend API Starter**:
+Fondasi integrasi sistem penuh:
+* **Backend API (FastAPI & PostgreSQL)**:
   * Menyelaraskan skema Pydantic v2 di [requirement_schema.py](file:///d:/portfolio/AI/reqlint/backend/app/schemas/requirement_schema.py) ke format User Story.
-  * Mengintegrasikan endpoint audit di [requirements.py](file:///d:/portfolio/AI/reqlint/backend/app/api/v1/endpoints/requirements.py) langsung ke `ReqLintEngine`.
-  * Memperbarui pengujian unit API di [test_api.py](file:///d:/portfolio/AI/reqlint/backend/tests/test_api.py) dengan kelulusan **100% (3/3 passed)**.
-* **Frontend UI Starter**:
+  * Mengintegrasikan pipeline audit 2-tahap (Tahap 1 Rule Matcher Cepat + Tahap 2 LLM/ML Evaluator) di [requirements.py](file:///d:/portfolio/AI/reqlint/backend/app/api/v1/endpoints/requirements.py).
+  * Pengujian unit dan skenario acceptance test API di [test_api.py](file:///d:/portfolio/AI/reqlint/backend/tests/test_api.py) dan [test_lint.py](file:///d:/portfolio/AI/reqlint/backend/tests/test_lint.py) dengan kelulusan **100% (19/19 passed)**.
+* **Frontend UI (Next.js 14 & Tailwind CSS)**:
   * Mengadaptasi antarmuka [RequirementEditor.tsx](file:///d:/portfolio/AI/reqlint/frontend-qa/src/components/editor/RequirementEditor.tsx) menjadi *Agile User Story Editor* dilengkapi tombol template cepat (`🇮🇩 Format ID` dan `🇬🇧 Format EN`).
   * Memperbarui visualisasi kartu skor kualitas [AuditScorecard.tsx](file:///d:/portfolio/AI/reqlint/frontend-qa/src/components/analysis/AuditScorecard.tsx) dan daftar temuan [SmellList.tsx](file:///d:/portfolio/AI/reqlint/frontend-qa/src/components/analysis/SmellList.tsx).
-  * Memperbarui skenario pengujian E2E Cypress di [editor-audit.spec.ts](file:///d:/portfolio/AI/reqlint/frontend-qa/tests-e2e/e2e/editor-audit.spec.ts).
+  * Menyiapkan visualisasi diff perbaikan 1-klik dan kriteria penerimaan Gherkin (Given-When-Then).
+  * Mengonfigurasi skenario pengujian E2E Cypress di [editor-audit.spec.ts](file:///d:/portfolio/AI/reqlint/frontend-qa/tests-e2e/e2e/editor-audit.spec.ts).
 
 ---
 
-## 📈 Rekapitulasi Metrik & Artefak Minggu ke-1
+## 📈 Rekapitulasi Metrik & Artefak Proyek
 
-| Indikator Capaian | Target Minggu 1 | Realisasi Minggu 1 | Status |
+| Indikator Capaian | Target | Realisasi | Status |
 |---|:---:|:---:|:---:|
-| **Dokumentasi Metodologi INVEST** | Draf Awal | Dokumen SOP Lengkap v0.9 ([pedoman_anotasi_invest.md](file:///d:/portfolio/AI/reqlint/pm-docs/rubrics/pedoman_anotasi_invest.md)) | ✅ Tercapai |
+| **Dokumentasi Metodologi INVEST** | Draf Awal | Dokumen SOP Lengkap v0.9 ([pedoman_anotasi_invest.md](file:///d:/portfolio/AI/reqlint/docs/pedoman_anotasi_invest.md)) | ✅ Tercapai |
 | **Penyelarasan Rubrik Kriteria** | Ada | JSON Rubrik Formal ([invest_criteria.json](file:///d:/portfolio/AI/reqlint/pm-docs/rubrics/invest_criteria.json)) | ✅ Tercapai |
 | **Pipeline Data & Korpus** | Rencana Pengumpulan | 1.000 User Stories (500 ID / 500 EN) ([invest_corpus_1000.csv](file:///d:/portfolio/AI/reqlint/ai-engine/data/invest_corpus_1000.csv)) | 🚀 Melampaui Target |
 | **Isolasi Test Set** | Terdefinisi | 100% Natural Stories (0% Perturbasi/Sintetis pada Test) | ✅ Valid |
 | **Engine Perturbasi Terkontrol** | Konseptual | Modul Kode Operasional ([perturbation_engine.py](file:///d:/portfolio/AI/reqlint/ai-engine/data_pipeline/perturbation_engine.py)) | ✅ Tercapai |
 | **Engine NLP Dwibahasa** | Prototipe Kasar | *Rule Matchers* Connextra & INVEST ID/EN Operasional | ✅ Tercapai |
-| **Pengujian Unit Otomatis** | Berjalan | 8/8 Tests Passing (5 AI Engine, 3 Backend API) | ✅ 100% Hijau |
-
----
-
-## 🗺️ Rencana Kerja Iterasi Berikutnya (Roadmap Minggu ke-2)
-
-Ketika rekan tim mulai aktif di minggu depan, rencana pembagian tugas berikutnya adalah:
-1. **Untuk Anggota Tim Lain (Kolaborator)**:
-   * **AI Engineer 2**: Melakukan sesi pelabelan mandiri pada [lembar_anotasi_kosong.csv](file:///d:/portfolio/AI/reqlint/ai-engine/benchmarks/lembar_anotasi_kosong.csv) untuk menguji kesepakatan penilai riil (*Inter-Rater Reliability*) dengan skrip [invest_annotation_experiment.py](file:///d:/portfolio/AI/reqlint/ai-engine/benchmarks/invest_annotation_experiment.py), serta mulai mengintegrasikan Stanza untuk *dependency parsing* bahasa Indonesia.
-   * **Backend Engineer**: Menyempurnakan penyimpanan riwayat audit ke database relasional PostgreSQL menggunakan SQLAlchemy ORM dan antrean tugas Celery/Redis.
-   * **Frontend + QA Engineer**: Mempercantik tampilan UI visual diff, menambahkan fitur ekspor laporan audit ke PDF/JSON, serta menjalankan Cypress E2E test suite.
-2. **Untuk Penulis (PM & AI Engineer 1)**:
-   * Mengawasi rapat rekonsiliasi hasil anotasi mandiri dan mendokumentasikan nilai Cohen's Kappa & PABAK riil.
-   * Mempersiapkan arsitektur ekstraksi fitur *white-box* (Lapisan 1 dan Lapisan 2) menggunakan Stanza sebelum masuk ke pengujian model machine learning *interpretable*.
+| **Pengujian Unit Otomatis** | Berjalan | 19 Backend API Tests & 5 AI Engine Tests Passing | ✅ 100% Hijau |

@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -33,20 +33,28 @@ export default function RegisterPage() {
     if (!parsed.success) return setErrors(fieldErrors(parsed.error));
 
     setBusy(true);
+    setErrors({});
     const result = await register(parsed.data);
     setBusy(false);
-    if (!result.ok) return setErrors({ email: result.error });
-    router.replace('/login');
+    if (!result.ok) {
+      if (result.field) {
+        return setErrors({ [result.field]: result.error });
+      }
+      return setErrors({ form: result.error });
+    }
+
+    toast('Pendaftaran berhasil! Mengalihkan ke ruang kerja...');
+    router.replace('/editor');
   }
 
   const soon = (e: React.MouseEvent) => {
     e.preventDefault();
-    toast('Halaman ini belum tersedia di pratinjau.');
+    toast('Halaman kebijakan privasi dan ketentuan dapat diakses di portal dokumentasi.');
   };
 
   return (
     <AuthShell>
-      <h1 className=" text-[30px] font-bold leading-tight tracking-tight">Buat akun baru</h1>
+      <h1 className="text-[30px] font-bold leading-tight tracking-tight">Buat akun baru</h1>
       <p className="mt-2.5 text-[15px] text-muted">
         Mulai audit kualitas User Story Anda dengan standar ISO 29148 dan INVEST.
       </p>
@@ -65,7 +73,7 @@ export default function RegisterPage() {
           label="Kata Sandi"
           name="password"
           autoComplete="new-password"
-          placeholder="Minimal 8 karakter"
+          placeholder="Minimal 8 karakter (huruf dan angka)"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           error={errors.password}
@@ -78,7 +86,7 @@ export default function RegisterPage() {
               />
             ))}
           </div>
-          <p className="mt-2 text-[12px] text-muted">Gunakan huruf, angka, dan simbol</p>
+          <p className="mt-2 text-[12px] text-muted">Gunakan huruf dan angka (minimal 8 karakter)</p>
         </PasswordField>
         <PasswordField
           label="Konfirmasi Kata Sandi"
@@ -109,9 +117,23 @@ export default function RegisterPage() {
           {errors.terms && <p className="mt-1.5 text-[12.5px] text-rose-600 dark:text-rose-400">{errors.terms}</p>}
         </div>
 
-        <button type="submit" disabled={busy} className="btn-primary relative h-[52px] w-full text-[16px]">
-          Daftar
-          <ArrowRight size={18} className="absolute right-5" aria-hidden />
+        {errors.form && (
+          <p role="alert" className="rounded-2xl bg-rose-50 px-4 py-3 text-[13.5px] text-rose-700 dark:bg-rose-400/10 dark:text-rose-300">
+            {errors.form}
+          </p>
+        )}
+
+        <button type="submit" disabled={busy} className="btn-primary relative h-[52px] w-full text-[16px] disabled:opacity-60">
+          {busy ? (
+            <span className="inline-flex items-center gap-2">
+              <Loader2 size={18} className="animate-spin" aria-hidden /> Mendaftarkan...
+            </span>
+          ) : (
+            <>
+              Daftar
+              <ArrowRight size={18} className="absolute right-5" aria-hidden />
+            </>
+          )}
         </button>
       </form>
 
