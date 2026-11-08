@@ -1,0 +1,6 @@
+# Dependensi untuk menjalankan BDD test (behave) ReqLint
+-r backend/requirements.txt
+behave>=1.2.6
+requests>=2.31.0
+selenium>=4.15.0
+
