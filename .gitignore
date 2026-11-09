@@ -6,6 +6,7 @@ venv/
 .venv/
 *.egg-info/
 .pytest_cache/
+pretty.output
 
 # Node & Frontend
 node_modules/
