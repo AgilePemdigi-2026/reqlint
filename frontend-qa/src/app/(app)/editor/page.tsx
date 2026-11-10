@@ -52,6 +52,7 @@ export default function EditorPage() {
       });
 
       if (res.data?.id_audit) {
+        createAudit(draft.text, draft.language, String(res.data.id_audit));
         toast('Draf diterima backend. Menjalankan model klasifikasi INVEST...');
         router.push(`/audit/${res.data.id_audit}`);
         return;

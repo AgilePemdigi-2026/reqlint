@@ -1,11 +1,13 @@
 import re
-from datetime import datetime, timezone
+import secrets
+import hashlib
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import status
 
-from app.db.models import User
-from app.schemas.auth import RegisterRequest, LoginRequest
+from app.db.models import User, PasswordResetToken
+from app.schemas.auth import RegisterRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest
 from app.core.security import hash_password, verify_password, dummy_verify_password, create_access_token
 from app.core.errors import AppException
 from app.core.config import settings
@@ -96,3 +98,94 @@ class AuthService:
                 "email": user.alamat_email
             }
         }
+
+    @staticmethod
+    async def forgot_password(db: AsyncSession, payload: ForgotPasswordRequest) -> None:
+        """
+        Membuat token reset password.
+        Selalu berhasil tanpa error untuk mencegah user enumeration.
+        Pada implementasi produksi, token dikirim via email.
+        """
+        stmt = select(User).where(User.alamat_email == payload.email.strip().lower())
+        result = await db.execute(stmt)
+        user = result.scalar_one_or_none()
+
+        if not user:
+            # Jangan berikan info bahwa email tidak ditemukan (anti-enumeration)
+            return
+
+        # Buat token reset
+        raw_token = secrets.token_urlsafe(48)
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+
+        reset_token = PasswordResetToken(
+            id_user=user.id_user,
+            token_hash=token_hash,
+            expires_at=expires_at,
+        )
+        db.add(reset_token)
+        await db.commit()
+
+        # NOTE: Pada implementasi produksi, kirim email berisi:
+        # f"{FRONTEND_URL}/reset-password?token={raw_token}"
+        # Untuk keperluan demo/development, token disimpan di database
+        # dan bisa diakses langsung
+
+    @staticmethod
+    async def reset_password(db: AsyncSession, payload: ResetPasswordRequest) -> None:
+        """
+        Reset password menggunakan token yang valid.
+        """
+        # Validasi password baru
+        has_letter = bool(re.search(r'[A-Za-z]', payload.password))
+        has_digit = bool(re.search(r'\d', payload.password))
+        if len(payload.password) < 8 or not has_letter or not has_digit:
+            raise AppException(
+                message="Sandi harus memuat minimal 8 karakter dengan huruf dan angka",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                error_code="INVALID_PASSWORD",
+                errors=[{"field": "password", "message": "Sandi harus memuat minimal 8 karakter dengan huruf dan angka"}]
+            )
+
+        if payload.password != payload.password_confirmation:
+            raise AppException(
+                message="Konfirmasi sandi tidak cocok",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                error_code="INVALID_PASSWORD",
+                errors=[{"field": "password_confirmation", "message": "Konfirmasi sandi tidak cocok"}]
+            )
+
+        # Cari token
+        token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
+        stmt = select(PasswordResetToken).where(
+            PasswordResetToken.token_hash == token_hash,
+            PasswordResetToken.used_at.is_(None),
+            PasswordResetToken.expires_at > datetime.now(timezone.utc)
+        )
+        result = await db.execute(stmt)
+        reset_record = result.scalar_one_or_none()
+
+        if not reset_record:
+            raise AppException(
+                message="Token reset tidak valid atau sudah kedaluwarsa",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                error_code="INVALID_RESET_TOKEN"
+            )
+
+        # Update password
+        user_stmt = select(User).where(User.id_user == reset_record.id_user)
+        user_result = await db.execute(user_stmt)
+        user = user_result.scalar_one_or_none()
+
+        if not user:
+            raise AppException(
+                message="Pengguna tidak ditemukan",
+                status_code=status.HTTP_404_NOT_FOUND,
+                error_code="USER_NOT_FOUND"
+            )
+
+        user.password = hash_password(payload.password)
+        reset_record.used_at = datetime.now(timezone.utc)
+
+        await db.commit()

@@ -8,7 +8,7 @@ import { createLocalStore, useHydrated } from './store';
  * (analisis murah & deterministik), sehingga tidak ada data turunan yang basi.
  */
 export interface Audit {
-  id: string; // AUD-101, AUD-102, ...
+  id: string; // AUD-101, AUD-102, ... atau ID numerik backend (1, 2, ...)
   seq: number;
   createdAt: string; // ISO
   title: string;
@@ -33,21 +33,31 @@ const tipStore = createLocalStore<boolean>('reqlint.tip-dismissed', false);
 export const FIRST_SEQ = 101;
 
 /** Buat audit baru, atau pakai ulang audit terbaru bila teks & bahasa identik. */
-export function createAudit(text: string, language: Language): Audit {
+export function createAudit(text: string, language: Language, customId?: string): Audit {
   const all = auditsStore.get();
   const latest = all[0];
-  if (latest && latest.text === text && latest.language === language) return latest;
+  if (latest && latest.text === text && latest.language === language && (!customId || latest.id === customId)) return latest;
   const seq = all.reduce((max, a) => Math.max(max, a.seq), FIRST_SEQ - 1) + 1;
   const audit: Audit = {
-    id: `AUD-${seq}`,
+    id: customId || `AUD-${seq}`,
     seq,
     createdAt: new Date().toISOString(),
     title: suggestTitle(text, language),
     text,
     language,
   };
-  auditsStore.set([audit, ...all]);
+  // Hindari duplikasi ID
+  auditsStore.set([audit, ...all.filter((a) => a.id !== audit.id)]);
   return audit;
+}
+
+export function syncAudits(items: Audit[]) {
+  const current = auditsStore.get();
+  const existingIds = new Set(current.map((a) => a.id));
+  const newItems = items.filter((item) => !existingIds.has(item.id));
+  if (newItems.length > 0) {
+    auditsStore.set([...newItems, ...current]);
+  }
 }
 
 export function touchAudit(id: string) {

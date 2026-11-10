@@ -32,7 +32,7 @@ export const DEMO_ACCOUNT = {
 
 export type Result = { ok: true; user?: User } | { ok: false; error: string; field?: string };
 
-/** Mendaftarkan akun baru ke backend FastAPI lalu langsung melakukan autentikasi login. */
+/** Mendaftarkan akun baru ke backend FastAPI (tidak otomatis login, user wajib login manual). */
 export async function register(input: {
   name: string;
   email: string;
@@ -53,8 +53,8 @@ export async function register(input: {
       password_confirmation,
     });
 
-    // 2. Otomatis login untuk mendapatkan JWT Token
-    return await login(email, password);
+    // 2. Berhasil registrasi, kembalikan ok tanpa auto-login agar pengguna diarahkan ke login
+    return { ok: true };
   } catch (err) {
     const error = extractApiError(err);
     return {
@@ -100,7 +100,7 @@ export async function loginDemo(): Promise<Result> {
   const loginRes = await login(DEMO_ACCOUNT.email, DEMO_ACCOUNT.password);
   if (loginRes.ok) return loginRes;
 
-  // Jika akun demo belum terdaftar di database server, daftarkan otomatis
+  // Jika akun demo belum terdaftar di database server, daftarkan otomatis lalu login
   const regRes = await register({
     name: DEMO_ACCOUNT.name,
     email: DEMO_ACCOUNT.email,
@@ -108,7 +108,8 @@ export async function loginDemo(): Promise<Result> {
     confirm: DEMO_ACCOUNT.password,
   });
 
-  return regRes;
+  if (!regRes.ok) return regRes;
+  return await login(DEMO_ACCOUNT.email, DEMO_ACCOUNT.password);
 }
 
 /** Mengakhiri sesi pengguna aktif dan menghapus token dari storage. */
