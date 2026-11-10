@@ -136,7 +136,14 @@ export async function verifySession(): Promise<User | null> {
         email: res.data.email,
         tanggal_registrasi: res.data.tanggal_registrasi,
       };
-      sessionStore.set({ token: session.token, user: updatedUser });
+      if (
+        session.user?.id_user !== updatedUser.id_user ||
+        session.user?.name !== updatedUser.name ||
+        session.user?.email !== updatedUser.email ||
+        session.user?.tanggal_registrasi !== updatedUser.tanggal_registrasi
+      ) {
+        sessionStore.set({ token: session.token, user: updatedUser });
+      }
       return updatedUser;
     }
   } catch (err) {

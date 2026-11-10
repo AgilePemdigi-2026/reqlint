@@ -9,12 +9,14 @@ import { PasswordField, TextField } from '@/components/auth/fields';
 import { useToast } from '@/components/providers';
 import { register } from '@/lib/auth';
 import { fieldErrors, passwordStrength, registerSchema } from '@/lib/validation';
+import { useT } from '@/lib/i18n';
 
 const STRENGTH_COLOR = ['', 'bg-rose-500', 'bg-amber-500', 'bg-lime-500', 'bg-emerald-500'];
 
 export default function RegisterPage() {
   const router = useRouter();
   const toast = useToast();
+  const t = useT();
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -43,26 +45,32 @@ export default function RegisterPage() {
       return setErrors({ form: result.error });
     }
 
-    toast('Pendaftaran berhasil, silakan masuk');
+    toast(t('register.success'));
     router.replace('/login');
   }
 
   const soon = (e: React.MouseEvent) => {
     e.preventDefault();
-    toast('Halaman kebijakan privasi dan ketentuan dapat diakses di portal dokumentasi.');
+    toast(t('register.terms_toast'));
   };
 
   return (
     <AuthShell>
-      <h1 className="text-[30px] font-bold leading-tight tracking-tight">Buat akun baru</h1>
+      <h1 className="text-[30px] font-bold leading-tight tracking-tight">{t('register.title')}</h1>
       <p className="mt-2.5 text-[15px] text-muted">
-        Mulai audit kualitas User Story Anda dengan standar ISO 29148 dan INVEST.
+        {t('register.subtitle')}
       </p>
 
       <form onSubmit={onSubmit} noValidate className="mt-7 space-y-4">
-        <TextField label="Nama" name="name" autoComplete="name" placeholder="Nama lengkap Anda" error={errors.name} />
         <TextField
-          label="Email"
+          label={t('register.name')}
+          name="name"
+          autoComplete="name"
+          placeholder={t('register.name_placeholder')}
+          error={errors.name}
+        />
+        <TextField
+          label={t('register.email')}
           name="email"
           type="email"
           autoComplete="email"
@@ -70,10 +78,10 @@ export default function RegisterPage() {
           error={errors.email}
         />
         <PasswordField
-          label="Kata Sandi"
+          label={t('register.password')}
           name="password"
           autoComplete="new-password"
-          placeholder="Minimal 8 karakter (huruf dan angka)"
+          placeholder={t('register.password_placeholder')}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           error={errors.password}
@@ -86,13 +94,13 @@ export default function RegisterPage() {
               />
             ))}
           </div>
-          <p className="mt-2 text-[12px] text-muted">Gunakan huruf dan angka (minimal 8 karakter)</p>
+          <p className="mt-2 text-[12px] text-muted">{t('register.password_hint')}</p>
         </PasswordField>
         <PasswordField
-          label="Konfirmasi Kata Sandi"
+          label={t('register.confirm')}
           name="confirm"
           autoComplete="new-password"
-          placeholder="Ulangi kata sandi Anda"
+          placeholder={t('register.confirm_placeholder')}
           error={errors.confirm}
         />
 
@@ -104,13 +112,13 @@ export default function RegisterPage() {
               className="h-5 w-5 shrink-0 cursor-pointer rounded-md border border-line/20 accent-[rgb(var(--btn))]"
             />
             <span>
-              Saya menyetujui{' '}
+              {t('register.terms_agree')}{' '}
               <a href="#" onClick={soon} className="text-accent hover:underline">
-                Ketentuan Layanan
+                {t('register.terms_tos')}
               </a>{' '}
-              dan{' '}
+              {t('register.terms_and')}{' '}
               <a href="#" onClick={soon} className="text-accent hover:underline">
-                Kebijakan Privasi
+                {t('register.terms_privacy')}
               </a>
             </span>
           </label>
@@ -126,11 +134,11 @@ export default function RegisterPage() {
         <button type="submit" disabled={busy} className="btn-primary relative h-[52px] w-full text-[16px] disabled:opacity-60">
           {busy ? (
             <span className="inline-flex items-center gap-2">
-              <Loader2 size={18} className="animate-spin" aria-hidden /> Mendaftarkan...
+              <Loader2 size={18} className="animate-spin" aria-hidden /> {t('register.submitting')}
             </span>
           ) : (
             <>
-              Daftar
+              {t('register.submit')}
               <ArrowRight size={18} className="absolute right-5" aria-hidden />
             </>
           )}
@@ -138,9 +146,9 @@ export default function RegisterPage() {
       </form>
 
       <p className="mt-6 text-center text-[14px] text-muted">
-        Sudah punya akun?{' '}
+        {t('register.has_account')}{' '}
         <Link href="/login" className="font-semibold text-accent hover:underline">
-          Masuk
+          {t('register.login')}
         </Link>
       </p>
     </AuthShell>

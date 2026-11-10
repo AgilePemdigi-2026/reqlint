@@ -66,11 +66,11 @@ function Navbar({ name, email }: { name: string; email: string }) {
 
           <Popover
             align="right"
-            trigger={({ toggle: t }) => (
+            trigger={({ toggle: toggleNotif }) => (
               <button
                 type="button"
-                onClick={t}
-                aria-label="Notifikasi"
+                onClick={toggleNotif}
+                aria-label={t('nav.notifications')}
                 className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-line/[0.07] bg-card/70 text-ink transition hover:bg-card"
               >
                 <Bell size={17} strokeWidth={1.6} />
@@ -88,10 +88,10 @@ function Navbar({ name, email }: { name: string; email: string }) {
 
           <Popover
             align="right"
-            trigger={({ toggle: t }) => (
+            trigger={({ toggle: toggleAccount }) => (
               <button
                 type="button"
-                onClick={t}
+                onClick={toggleAccount}
                 aria-label={t('nav.account_menu')}
                 className="inline-flex items-center gap-1.5 rounded-full p-1 pr-2 transition hover:bg-line/[0.05]"
               >
@@ -148,10 +148,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (user === null) {
       router.replace('/login');
-    } else if (user) {
-      verifySession();
     }
   }, [user, router]);
+
+  useEffect(() => {
+    if (user) {
+      verifySession();
+    }
+  }, []);
 
   if (!user) return <div className="min-h-screen" aria-busy="true" />;
 
