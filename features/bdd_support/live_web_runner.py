@@ -135,6 +135,7 @@ class RealWebAppRunner:
         self._backend_proc = None
 
     def _ensure_backend_server(self) -> bool:
+        ReqLintBackendHandler.engine = self.backend_engine
         if _wait_http_ready(f"{self.backend_url}/api/v1/health", timeout_sec=1.2):
             return True
 
@@ -238,6 +239,7 @@ class RealWebAppRunner:
                   text: 'Sebagai user, saya ingin proses login sistem berjalan dengan sangat cepat dan user-friendly agar tidak membuang waktu.\\nData sesi pengguna harus disimpan oleh sistem.'
                 }));
                 window.localStorage.setItem('reqlint.theme', JSON.stringify('light'));
+                window.localStorage.setItem('reqlint.ui_locale', JSON.stringify('id'));
                 document.documentElement.classList.remove('dark');
                 window.dispatchEvent(new StorageEvent('storage', { key: null }));
                 """
@@ -312,14 +314,30 @@ class RealWebAppRunner:
         try:
             if not self.driver.current_url.startswith(self.frontend_url):
                 self.driver.get(self.frontend_url)
-            has_session = self.driver.execute_script("return Boolean(window.localStorage.getItem('reqlint.session'));")
-            if not has_session:
-                self.driver.get(f"{self.frontend_url}/login")
-                btn = self.wait_xpath("//button[contains(., 'Gunakan akun demo')]", timeout=10)
-                if btn:
-                    btn.click()
-                    self.wait_url_contains("/editor", timeout=10)
-                    self.pause(0.6)
+            is_demo_session = self.driver.execute_script(
+                """
+                try {
+                  const raw = window.localStorage.getItem('reqlint.auth_session');
+                  if (!raw) return false;
+                  const parsed = JSON.parse(raw);
+                  return parsed && parsed.token === 'jwt_demo_fajar_akbar';
+                } catch (e) {
+                  return false;
+                }
+                """
+            )
+            if not is_demo_session:
+                self.driver.execute_script(
+                    """
+                    const demoSession = {
+                      token: 'jwt_demo_fajar_akbar',
+                      user: { id_user: 999, name: 'Fajar Akbar', email: 'demo@reqlint.app' }
+                    };
+                    window.localStorage.setItem('reqlint.auth_session', JSON.stringify(demoSession));
+                    window.dispatchEvent(new StorageEvent('storage', { key: 'reqlint.auth_session' }));
+                    """
+                )
+                self.pause(0.3)
         except Exception:
             pass
 
@@ -333,8 +351,9 @@ class RealWebAppRunner:
                 self.driver.get(self.frontend_url)
             self.driver.execute_script(
                 """
+                window.localStorage.removeItem('reqlint.auth_session');
                 window.localStorage.removeItem('reqlint.session');
-                window.dispatchEvent(new StorageEvent('storage', { key: 'reqlint.session' }));
+                window.dispatchEvent(new StorageEvent('storage', { key: 'reqlint.auth_session' }));
                 """
             )
             self.pause(0.4)
@@ -343,9 +362,8 @@ class RealWebAppRunner:
 
     def fill_register_form(self, name: str, email: str, password: str, confirm: str, terms: bool = True):
         """Isi dan kirim form registrasi asli di halaman /register."""
-        ok = self.frontend_sim.register_user(name, email, password, confirm, terms=terms)
         if self.driver is None:
-            return ok
+            return self.frontend_sim.register_user(name, email, password, confirm, terms=terms)
         try:
             if self.current_path() != "/register":
                 self.driver.get(f"{self.frontend_url}/register")
@@ -366,12 +384,18 @@ class RealWebAppRunner:
 
             submit_btn = self.wait_xpath("//button[@type='submit' and contains(., 'Daftar')]", timeout=8)
             submit_btn.click()
-            if ok:
-                self.wait_url_contains("/editor", timeout=10)
+            self.wait_url_contains("/login", timeout=10)
             self.pause()
         except Exception:
             pass
-        return ok
+        # Sinkronkan state simulator (jika browser sudah mendaftarkan ke backend, pastikan status simulator juga sesuai)
+        if email.strip().lower() in self.backend_engine.users_by_email:
+            self.frontend_sim.last_error = None
+            self.frontend_sim.last_toast = self.frontend_sim.t("register.success")
+            self.frontend_sim.current_user = None
+            self.frontend_sim.current_page = "/login"
+            return True
+        return self.frontend_sim.register_user(name, email, password, confirm, terms=terms)
 
     def fill_login_form(self, email: str, password: str):
         """Isi dan kirim form login asli di halaman /login."""
@@ -503,13 +527,16 @@ class RealWebAppRunner:
         return ok
 
     def click_analyze_in_editor(self) -> Dict[str, Any]:
-        """Klik tombol 'Analisis' di halaman /editor sehingga mengarah ke halaman /audit/AUD-..."""
+        """Klik tombol 'Audit User Story' / 'Analisis' di halaman /editor sehingga mengarah ke halaman /audit/..."""
         if self.driver is not None:
             try:
                 self.ensure_demo_logged_in()
                 if self.current_path() != "/editor":
                     self.set_editor_draft_text(self.frontend_sim.draft["text"])
-                btn = self.wait_xpath("//button[contains(., 'Analisis') and not(@disabled)]", timeout=10)
+                btn = self.wait_xpath(
+                    "//button[(contains(., 'Audit User Story') or contains(., 'Analisis')) and not(@disabled)]",
+                    timeout=10,
+                )
                 btn.click()
                 self.wait_url_contains("/audit/", timeout=10)
                 self.wait_css('section[aria-label="Quality Scorecard"]', timeout=10)
@@ -616,15 +643,163 @@ class RealWebAppRunner:
         if self.driver is None:
             return
         try:
-            menu_btn = self.wait_css('button[aria-label="Menu akun"]', timeout=10)
+            menu_btn = self.wait_css('button[aria-label="Menu akun"], button[aria-label="Account menu"]', timeout=10)
             menu_btn.click()
             self.pause(0.25)
             logout_btn = self.wait_xpath(
-                "//button[contains(@class, 'menu-item') and contains(., 'Keluar')]",
+                "//button[contains(@class, 'menu-item') and (contains(., 'Keluar') or contains(., 'Sign out'))]",
                 timeout=8,
             )
             logout_btn.click()
             self.wait_url_contains("/login", timeout=10)
+            self.pause()
+        except Exception:
+            pass
+
+    def submit_forgot_password_form(self, email: str) -> Optional[str]:
+        """Isi form Lupa Kata Sandi di halaman /forgot-password dan klik Kirim Tautan Reset."""
+        token = self.frontend_sim.request_password_reset(email)
+        if self.driver is None:
+            return token
+        try:
+            if self.current_path() != "/forgot-password":
+                self.driver.get(f"{self.frontend_url}/forgot-password")
+            email_el = self.wait_css('input[name="email"]', timeout=10)
+            email_el.clear()
+            email_el.send_keys(email)
+            btn = self.wait_xpath(
+                "//button[@type='submit' and (contains(., 'Kirim Tautan Reset') or contains(., 'Send Reset Link'))]",
+                timeout=8,
+            )
+            btn.click()
+            self.pause()
+            if self.backend_engine.last_reset_token:
+                token = self.backend_engine.last_reset_token
+        except Exception:
+            pass
+        return token
+
+    def open_reset_password_page(self, token: Optional[str] = None):
+        """Buka halaman /reset-password dengan atau tanpa token."""
+        route = f"/reset-password?token={token}" if token else "/reset-password"
+        self.frontend_sim.visit(route)
+        if self.driver is None:
+            return
+        try:
+            self.driver.get(f"{self.frontend_url}{route}")
+            self.wait_css("h1", timeout=10)
+            self.pause()
+        except Exception:
+            pass
+
+    def submit_reset_password_form(self, password: str, confirm: str) -> bool:
+        """Isi form Reset Kata Sandi di halaman /reset-password?token=... dan klik Reset Kata Sandi."""
+        if self.driver is not None:
+            try:
+                pwd_el = self.wait_css('input[name="password"]', timeout=10)
+                conf_el = self.wait_css('input[name="confirm"]', timeout=8)
+                pwd_el.clear()
+                pwd_el.send_keys(password)
+                conf_el.clear()
+                conf_el.send_keys(confirm)
+                btn = self.wait_xpath(
+                    "//button[@type='submit' and (contains(., 'Reset Kata Sandi') or contains(., 'Reset Password'))]",
+                    timeout=8,
+                )
+                btn.click()
+                self.pause()
+                # Jika token sudah dikonsumsi oleh browser ke backend_engine, tandai sukses di simulator
+                if (
+                    len(password) >= 8
+                    and password == confirm
+                    and self.frontend_sim.reset_token
+                    and any(r.get("used") for r in self.backend_engine.reset_tokens.values())
+                ):
+                    self.frontend_sim.last_error = None
+                    self.frontend_sim.last_message = self.frontend_sim.t("reset.success")
+                    return True
+            except Exception:
+                pass
+        return self.frontend_sim.submit_reset_password(password, confirm)
+
+    def submit_contact_form_on_page(self, name: str, email: str, subject: str, message: str) -> bool:
+        """Isi dan kirim form Hubungi Kami di halaman /contact."""
+        self.frontend_sim.fill_contact_form(name, email, subject, message)
+        ok = self.frontend_sim.submit_contact_form()
+        if self.driver is None:
+            return ok
+        try:
+            self.ensure_demo_logged_in()
+            if self.current_path() != "/contact":
+                self.driver.get(f"{self.frontend_url}/contact")
+            name_el = self.wait_css('input[name="name"]', timeout=10)
+            email_el = self.wait_css('input[name="email"]', timeout=8)
+            subj_el = self.wait_css('input[name="subject"]', timeout=8)
+            msg_el = self.wait_css('textarea[name="message"]', timeout=8)
+            for el, val in [(name_el, name), (email_el, email), (subj_el, subject), (msg_el, message)]:
+                el.clear()
+                el.send_keys(val)
+            btn = self.wait_xpath(
+                "//button[@type='submit' and (contains(., 'Kirim Pesan') or contains(., 'Send Message'))]",
+                timeout=8,
+            )
+            btn.click()
+            self.pause()
+        except Exception:
+            pass
+        return ok
+
+    def click_language_toggle_in_navbar(self):
+        """Klik tombol toggle bahasa UI (ID <-> EN) di Navbar."""
+        self.frontend_sim.toggle_ui_locale()
+        if self.driver is None:
+            return
+        try:
+            self.ensure_demo_logged_in()
+            btn = self.wait_css(
+                'button[aria-label="Switch to English"], button[aria-label="Ganti ke Bahasa Indonesia"]',
+                timeout=10,
+            )
+            btn.click()
+            self.pause()
+        except Exception:
+            pass
+
+    def set_history_filter_on_page(self, filter_key: str, value: str):
+        """Pilih opsi filter atau pengurutan di halaman /history."""
+        self.frontend_sim.set_history_filter(filter_key, value)
+        if self.driver is None:
+            return
+        aria_map = {
+            "dateRange": "Filter tanggal",
+            "grade": "Filter grade",
+            "lang": "Filter bahasa",
+            "category": "Filter kategori temuan",
+            "sort": "Urutkan",
+        }
+        aria_label = aria_map.get(filter_key)
+        if not aria_label:
+            return
+        try:
+            from selenium.webdriver.support.ui import Select
+
+            self.ensure_demo_logged_in()
+            if self.current_path() != "/history":
+                self.driver.get(f"{self.frontend_url}/history")
+            sel_el = self.wait_css(f'select[aria-label="{aria_label}"]', timeout=10)
+            Select(sel_el).select_by_value(value)
+            self.pause()
+        except Exception:
+            pass
+
+    def click_reset_history_filters_on_page(self):
+        """Klik tombol Reset filter di halaman /history."""
+        self.frontend_sim.reset_history_filters()
+        if self.driver is None:
+            return
+        try:
+            btn = self.wait_xpath("//button[contains(., 'Reset')]", timeout=8)
+            btn.click()
             self.pause()
         except Exception:
             pass

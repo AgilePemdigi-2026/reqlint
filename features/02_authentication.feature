@@ -56,3 +56,34 @@ Feature: Autentikasi dan Manajemen Profil Pengguna (Backend)
     Then server merespons dengan status 401
     And field JSON "error_code" bernilai "UNAUTHORIZED"
 
+  Scenario: Meminta tautan lupa kata sandi (/api/v1/auth/forgot-password) mengembalikan pesan sukses
+    Given pengguna dengan email "${email_unik}" dan sandi "SecretP@ss123" sudah terdaftar
+    When saya meminta tautan reset kata sandi untuk email "${email_unik}"
+    Then server merespons dengan status 200
+    And field JSON "status" bernilai "success"
+    And field JSON "message" bernilai "Jika email terdaftar, tautan reset telah dikirim."
+
+  Scenario: Mereset kata sandi (/api/v1/auth/reset-password) dengan token valid dan login dengan sandi baru
+    Given pengguna dengan email "${email_unik}" dan sandi "SecretP@ss123" sudah terdaftar
+    When saya meminta tautan reset kata sandi untuk email "${email_unik}"
+    And saya mereset kata sandi menggunakan token reset terbaru menjadi "NewStrongP@ss99" dengan konfirmasi "NewStrongP@ss99"
+    Then server merespons dengan status 200
+    And field JSON "message" bernilai "Kata sandi berhasil diperbarui. Silakan masuk."
+    When saya login dengan email "${email_unik}" dan sandi "NewStrongP@ss99"
+    Then server merespons dengan status 200
+    And respons memiliki token akses yang valid
+
+  Scenario: Reset kata sandi ditolak jika token reset tidak valid atau sudah kedaluwarsa
+    Given sistem ReqLint berjalan dan endpoint API siap
+    When saya mereset kata sandi menggunakan token "token-palsu-tidak-valid" menjadi "NewStrongP@ss99" dengan konfirmasi "NewStrongP@ss99"
+    Then server merespons dengan status 400
+    And field JSON "error_code" bernilai "INVALID_RESET_TOKEN"
+
+  Scenario: Reset kata sandi ditolak jika konfirmasi sandi baru tidak cocok
+    Given pengguna dengan email "${email_unik}" dan sandi "SecretP@ss123" sudah terdaftar
+    When saya meminta tautan reset kata sandi untuk email "${email_unik}"
+    And saya mereset kata sandi menggunakan token reset terbaru menjadi "NewStrongP@ss99" dengan konfirmasi "BedaSandi123"
+    Then server merespons dengan status 422
+    And field JSON "error_code" bernilai "INVALID_PASSWORD"
+
+

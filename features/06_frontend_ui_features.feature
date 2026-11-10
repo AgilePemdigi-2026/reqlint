@@ -13,9 +13,12 @@ Feature: Antarmuka Pengguna Frontend ReqLint (Landing, Auth, Editor, Upload PDF,
     When pengguna mencoba membuka halaman "/editor"
     Then halaman diarahkan ke "/login"
 
-  Scenario: Registrasi akun baru pada halaman Register frontend
+  Scenario: Registrasi akun baru pada halaman Register frontend mengarahkan ke halaman Login
     Given pengguna membuka halaman "/register" pada frontend ReqLint
     When pengguna mengisi form registrasi dengan nama "Andi Pratama", email "andi@reqlint.app", sandi "AndiPass123!", dan menyetujui ketentuan layanan
+    Then notifikasi toast frontend menampilkan "Pendaftaran berhasil, silakan masuk"
+    And halaman diarahkan ke "/login"
+    When pengguna masuk melalui halaman "/login" dengan email "andi@reqlint.app" dan sandi "AndiPass123!"
     Then pengguna berhasil masuk dan diarahkan ke halaman "/editor"
 
   Scenario: Masuk menggunakan tombol Akun Demo pada halaman Login frontend
