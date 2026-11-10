@@ -35,7 +35,9 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
 
     # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    # Union annotation: a plain comma-separated string env value is passed through to the
+    # "before" validator below instead of failing JSON decoding (pydantic-settings >= 2.7).
+    CORS_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
     @field_validator("CORS_ORIGINS", mode="before")
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:

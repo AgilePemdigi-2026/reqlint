@@ -1,0 +1,61 @@
+# ReqLint .dockerignore
+# Applies to Docker builds using the repository root as build context
+# (backend/Dockerfile and frontend-qa/Dockerfile).
+
+# --- VCS & CI ---
+.git
+.gitignore
+.github
+
+# --- Node / Next.js artifacts ---
+node_modules
+.next
+.next-preview
+out
+build
+.cypress_cache
+tsconfig.tsbuildinfo
+npm-debug.log*
+
+# --- Python artifacts ---
+__pycache__
+*.py[cod]
+*$py.class
+.pytest_cache
+venv
+.venv
+*.egg-info
+pretty.output
+
+# --- Local databases (never ship dev data) ---
+*.db
+*.sqlite3
+
+# --- Runtime upload cache artifacts ---
+storage
+backend/storage
+
+# --- Environment & secrets (template kept) ---
+.env
+.env.*
+!.env.example
+
+# --- Docs, tests & local tooling not required inside the image ---
+docs
+pm-docs
+features
+behave.ini
+run_bdd.py
+requirements-bdd.txt
+backend/tests
+ai-engine/tests
+ai-engine/benchmarks
+frontend-qa/tests-e2e
+frontend-qa/cypress.config.ts
+
+# --- IDE & OS noise ---
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+*.log
