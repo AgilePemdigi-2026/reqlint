@@ -14,9 +14,10 @@ export function LandingFooter() {
         <nav className="flex gap-16 text-[14px]" aria-label="Tautan footer">
           <ul className="space-y-2.5">
             <li className="eyebrow mb-3">Produk</li>
-            <li><a href="#fitur" className="text-muted hover:text-ink">Fitur</a></li>
-            <li><a href="#cara-kerja" className="text-muted hover:text-ink">Cara Kerja</a></li>
-            <li><a href="#standar" className="text-muted hover:text-ink">Standar</a></li>
+            <li><a href="/#fitur" className="text-muted hover:text-ink">Fitur</a></li>
+            <li><a href="/#cara-kerja" className="text-muted hover:text-ink">Cara Kerja</a></li>
+            <li><a href="/#standar" className="text-muted hover:text-ink">Standar</a></li>
+            <li><Link href="/contact" className="text-muted hover:text-ink">Hubungi Kami</Link></li>
           </ul>
           <ul className="space-y-2.5">
             <li className="eyebrow mb-3">Akun</li>
