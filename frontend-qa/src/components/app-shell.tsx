@@ -66,10 +66,10 @@ function Navbar({ name, email }: { name: string; email: string }) {
 
           <Popover
             align="right"
-            trigger={({ toggle: t }) => (
+            trigger={({ toggle: toggleNotif }) => (
               <button
                 type="button"
-                onClick={t}
+                onClick={toggleNotif}
                 aria-label="Notifikasi"
                 className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-line/[0.07] bg-card/70 text-ink transition hover:bg-card"
               >
@@ -88,10 +88,10 @@ function Navbar({ name, email }: { name: string; email: string }) {
 
           <Popover
             align="right"
-            trigger={({ toggle: t }) => (
+            trigger={({ toggle: toggleMenu }) => (
               <button
                 type="button"
-                onClick={t}
+                onClick={toggleMenu}
                 aria-label={t('nav.account_menu')}
                 className="inline-flex items-center gap-1.5 rounded-full p-1 pr-2 transition hover:bg-line/[0.05]"
               >

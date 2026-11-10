@@ -39,6 +39,8 @@ def parse_multipart_upload(content_type: str, body: bytes) -> Optional[Tuple[str
 
 
 class ReqLintBackendHandler(BaseHTTPRequestHandler):
+    engine: ReqLintDirectEngine = ENGINE
+
     def log_message(self, format, *args):
         return
 
@@ -70,7 +72,8 @@ class ReqLintBackendHandler(BaseHTTPRequestHandler):
             except Exception:
                 json_body = None
 
-        resp = ENGINE.request(
+        active_engine = getattr(self.__class__, "engine", None) or ENGINE
+        resp = active_engine.request(
             method,
             self.path,
             json_body=json_body,

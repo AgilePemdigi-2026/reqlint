@@ -560,7 +560,7 @@ def step_fe_navigate(context, route):
     web = _web(context)
     if web:
         web.goto(route, wait_selector="h1")
-        if route in ("/editor", "/history") and not context.frontend.current_user:
+        if route in ("/editor", "/history", "/help", "/contact") and not context.frontend.current_user:
             web.wait_url_contains("/login", timeout=10)
     else:
         context.frontend.visit(route)
@@ -754,12 +754,6 @@ def step_fe_check_export_ext(context, ext):
     assert context.frontend.last_export["filename"].endswith(ext)
 
 
-@then("daftar riwayat audit menampilkan minimal 1 item audit")
-def step_fe_history_non_empty(context):
-    assert context.frontend.current_page == "/history"
-    assert len(context.frontend.audits) >= 1
-
-
 @when("pengguna menghapus seluruh riwayat audit di halaman history")
 def step_fe_clear_history(context):
     web = _web(context)
@@ -803,3 +797,271 @@ def step_fe_logout(context):
 def step_fe_logged_out(context, route):
     assert context.frontend.current_user is None
     assert context.frontend.current_page == route
+
+
+# =========================================================================== #
+# 7. SPRINT 3 NEW FEATURES (Forgot/Reset Password, Help, Contact, i18n, History Filters)
+# =========================================================================== #
+@when('saya meminta tautan reset kata sandi untuk email "{email}"')
+def step_be_forgot_password(context, email):
+    email_val = render(context, email)
+    context.response = context.backend.request(
+        "POST",
+        "/api/v1/auth/forgot-password",
+        json_body={"email": email_val},
+    )
+    context.data = context.response.json()
+    context.last_reset_token = context.backend.last_reset_token
+
+
+@when(
+    'saya mereset kata sandi menggunakan token reset terbaru menjadi "{new_pwd}" dengan konfirmasi "{conf_pwd}"'
+)
+def step_be_reset_password_latest_token(context, new_pwd, conf_pwd):
+    token = getattr(context, "last_reset_token", None) or context.backend.last_reset_token or ""
+    context.response = context.backend.request(
+        "POST",
+        "/api/v1/auth/reset-password",
+        json_body={
+            "token": token,
+            "password": new_pwd,
+            "password_confirmation": conf_pwd,
+        },
+    )
+    context.data = context.response.json()
+
+
+@when('saya mereset kata sandi menggunakan token "{raw_token}" menjadi "{new_pwd}" dengan konfirmasi "{conf_pwd}"')
+def step_be_reset_password_custom_token(context, raw_token, new_pwd, conf_pwd):
+    context.response = context.backend.request(
+        "POST",
+        "/api/v1/auth/reset-password",
+        json_body={
+            "token": raw_token,
+            "password": new_pwd,
+            "password_confirmation": conf_pwd,
+        },
+    )
+    context.data = context.response.json()
+
+
+@when('pengguna masuk melalui halaman "/login" dengan email "{email}" dan sandi "{pwd}"')
+def step_fe_login_on_page(context, email, pwd):
+    email_val = render(context, email)
+    web = _web(context)
+    if web:
+        web.fill_login_form(email_val, pwd)
+        if context.frontend.current_user:
+            web.wait_url_contains("/editor", timeout=10)
+    else:
+        context.frontend.login_user(email_val, pwd)
+
+
+@when('pengguna mengisi email "{email}" pada form lupa kata sandi dan menekan tombol "Kirim Tautan Reset"')
+@when('pengguna meminta tautan reset kata sandi pada halaman "/forgot-password" untuk email "{email}"')
+def step_fe_submit_forgot_password(context, email):
+    email_val = render(context, email)
+    web = _web(context)
+    if web:
+        context.fe_reset_token = web.submit_forgot_password_form(email_val)
+    else:
+        context.fe_reset_token = context.frontend.request_password_reset(email_val)
+
+
+@then('halaman lupa kata sandi menampilkan pesan konfirmasi "{expected_msg}"')
+def step_fe_verify_forgot_msg(context, expected_msg):
+    assert context.frontend.last_message == expected_msg, (
+        f"Expected '{expected_msg}', got '{context.frontend.last_message}'"
+    )
+
+
+@when('pengguna membuka halaman "/reset-password" menggunakan token reset yang diterima')
+def step_fe_open_reset_password_with_token(context):
+    token = getattr(context, "fe_reset_token", None) or context.backend.last_reset_token
+    assert token, "Token reset kata sandi tidak ditemukan"
+    web = _web(context)
+    if web:
+        web.open_reset_password_page(token)
+    else:
+        context.frontend.visit(f"/reset-password?token={token}")
+
+
+@when('pengguna mengisi kata sandi baru "{new_pwd}" dan konfirmasi "{conf_pwd}" lalu menekan tombol "Reset Kata Sandi"')
+def step_fe_submit_reset_password(context, new_pwd, conf_pwd):
+    web = _web(context)
+    if web:
+        ok = web.submit_reset_password_form(new_pwd, conf_pwd)
+    else:
+        ok = context.frontend.submit_reset_password(new_pwd, conf_pwd)
+    assert ok, f"Reset kata sandi gagal: {context.frontend.last_error}"
+
+
+@then('halaman reset kata sandi menampilkan pesan "{expected_msg}"')
+def step_fe_verify_reset_msg(context, expected_msg):
+    assert context.frontend.last_message == expected_msg, (
+        f"Expected '{expected_msg}', got '{context.frontend.last_message}'"
+    )
+
+
+@then('halaman menampilkan judul utama "{expected_title}"')
+def step_fe_verify_page_title(context, expected_title):
+    actual_title = context.frontend.page_title()
+    assert actual_title == expected_title, f"Expected title '{expected_title}', got '{actual_title}'"
+    web = _web(context)
+    if web and web.driver is not None:
+        web.wait_xpath(f"//h1[contains(., '{expected_title}')]", timeout=10)
+        h1_el = web.wait_css("h1", timeout=10)
+        if h1_el and h1_el.text.strip():
+            assert expected_title in h1_el.text, f"H1 di browser '{h1_el.text}' tidak memuat '{expected_title}'"
+
+
+@then('halaman panduan menampilkan bagian "{s1}", "{s2}", "{s3}", dan "{s4}"')
+def step_fe_verify_help_sections(context, s1, s2, s3, s4):
+    assert context.frontend.current_page == "/help"
+    for key in ("help.getting_started", "help.scores_title", "help.categories_title", "help.tips_title"):
+        assert context.frontend.t(key) in (s1, s2, s3, s4), f"Key {key} ({context.frontend.t(key)}) tidak cocok dengan bagian halaman panduan"
+    web = _web(context)
+    if web and web.driver is not None:
+        src = web.driver.page_source
+        for sec in (s1, s2, s3, s4):
+            assert sec in src or sec.replace("&", "&amp;") in src, f"Bagian '{sec}' tidak tampil di DOM /help"
+
+
+@then('halaman panduan menampilkan seluruh kategori cacat "{c1}", "{c2}", "{c3}", dan "{c4}"')
+def step_fe_verify_help_categories(context, c1, c2, c3, c4):
+    help_src = (FRONTEND_SRC / "app" / "(app)" / "help" / "page.tsx").read_text(encoding="utf-8")
+    format_src = (FRONTEND_SRC / "lib" / "format.ts").read_text(encoding="utf-8")
+    i18n_src = (FRONTEND_SRC / "lib" / "i18n.ts").read_text(encoding="utf-8")
+    combined = help_src + format_src + i18n_src
+    for cat in (c1, c2, c3, c4):
+        assert cat in combined, f"Kategori '{cat}' tidak ditemukan pada halaman panduan"
+
+
+@then('halaman kontak menampilkan bagian "{s1}" dan "{s2}" beserta email "{email}"')
+def step_fe_verify_contact_info(context, s1, s2, email):
+    assert context.frontend.current_page == "/contact"
+    contact_src = (FRONTEND_SRC / "app" / "(app)" / "contact" / "page.tsx").read_text(encoding="utf-8")
+    assert email in contact_src
+    assert context.frontend.t("contact.info_title") == s1
+    assert context.frontend.t("contact.info_team") == s2
+    web = _web(context)
+    if web and web.driver is not None:
+        src = web.driver.page_source
+        assert email in src, f"Email '{email}' tidak tampil di DOM /contact"
+
+
+@when(
+    'pengguna mengisi form kontak dengan nama "{name}", email "{email}", subjek "{subject}", dan pesan "{message}"'
+)
+def step_fe_fill_contact(context, name, email, subject, message):
+    context.contact_input = (name, email, subject, message)
+    context.frontend.fill_contact_form(name, email, subject, message)
+
+
+@when('pengguna menekan tombol "Kirim Pesan" pada halaman kontak')
+def step_fe_submit_contact(context):
+    name, email, subject, message = getattr(
+        context,
+        "contact_input",
+        ("Fajar Akbar", "fajar@reqlint.app", "Subjek Uji", "Pesan uji kontak"),
+    )
+    web = _web(context)
+    if web:
+        ok = web.submit_contact_form_on_page(name, email, subject, message)
+    else:
+        ok = context.frontend.submit_contact_form()
+    assert ok, f"Gagal mengirim pesan kontak: {context.frontend.last_error}"
+
+
+@then('halaman kontak menampilkan pesan sukses "{expected_msg}"')
+def step_fe_verify_contact_success(context, expected_msg):
+    assert context.frontend.last_message == expected_msg, (
+        f"Expected '{expected_msg}', got '{context.frontend.last_message}'"
+    )
+
+
+@when("pengguna menekan tombol ganti bahasa antarmuka di Navbar")
+def step_fe_click_language_toggle(context):
+    web = _web(context)
+    if web:
+        web.click_language_toggle_in_navbar()
+    else:
+        context.frontend.toggle_ui_locale()
+
+
+@then('bahasa antarmuka aplikasi berubah menjadi "{expected_locale}"')
+def step_fe_verify_ui_locale(context, expected_locale):
+    assert context.frontend.ui_locale == expected_locale, (
+        f"Expected ui_locale '{expected_locale}', got '{context.frontend.ui_locale}'"
+    )
+
+
+@then('menu navigasi utama menampilkan label "{l1}", "{l2}", dan "{l3}"')
+def step_fe_verify_nav_labels(context, l1, l2, l3):
+    nav_labels = context.frontend.nav_labels()
+    for lbl in (l1, l2, l3):
+        assert lbl in nav_labels, f"Label '{lbl}' tidak ditemukan di dalam {nav_labels}"
+
+
+@then("daftar riwayat audit menampilkan minimal {count:d} item audit")
+def step_fe_history_min_count(context, count):
+    assert context.frontend.current_page == "/history"
+    assert len(context.frontend.audits) >= count, (
+        f"Expected >= {count} audits, got {len(context.frontend.audits)}"
+    )
+
+
+@when('pengguna memilih filter bahasa "{lang}" di halaman history')
+def step_fe_filter_history_lang(context, lang):
+    web = _web(context)
+    if web:
+        web.set_history_filter_on_page("lang", lang)
+    else:
+        context.frontend.set_history_filter("lang", lang)
+
+
+@then('daftar riwayat audit yang difilter menampilkan {count:d} item berbahasa "{lang}"')
+def step_fe_verify_filtered_lang(context, count, lang):
+    filtered = context.frontend.filtered_audits()
+    assert len(filtered) == count, f"Expected {count} items, got {len(filtered)}"
+    for item in filtered:
+        assert item["language"] == lang
+
+
+@when('pengguna memilih filter kategori temuan "{cat}" dan bahasa "{lang}" di halaman history')
+def step_fe_filter_history_cat_and_lang(context, cat, lang):
+    web = _web(context)
+    if web:
+        web.set_history_filter_on_page("lang", lang)
+        web.set_history_filter_on_page("category", cat)
+    else:
+        context.frontend.set_history_filter("lang", lang)
+        context.frontend.set_history_filter("category", cat)
+
+
+@then('daftar riwayat audit yang difilter menampilkan {count:d} item dengan temuan "{rule_id}"')
+def step_fe_verify_filtered_category(context, count, rule_id):
+    filtered = context.frontend.filtered_audits()
+    assert len(filtered) == count, f"Expected {count} items, got {len(filtered)}"
+    for item in filtered:
+        assert any(f.get("kategori_cacat") == rule_id for f in item.get("findings", []))
+
+
+@when('pengguna memilih pengurutan riwayat "{sort_key}" dan mereset filter di halaman history')
+def step_fe_sort_and_reset_history(context, sort_key):
+    web = _web(context)
+    if web:
+        web.set_history_filter_on_page("sort", sort_key)
+        web.click_reset_history_filters_on_page()
+    else:
+        context.frontend.reset_history_filters()
+    context.frontend.set_history_filter("sort", sort_key)
+
+
+@then("daftar riwayat audit kembali menampilkan seluruh item dengan urutan skor tertinggi di posisi pertama")
+def step_fe_verify_history_sorted_desc(context):
+    filtered = context.frontend.filtered_audits()
+    assert len(filtered) == len(context.frontend.audits)
+    assert len(filtered) >= 2
+    assert filtered[0]["score"] >= filtered[1]["score"]
+

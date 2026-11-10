@@ -10,9 +10,10 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -75,13 +76,24 @@ class ReqLintDirectEngine:
             return {line.strip().lower() for line in f if line.strip() and not line.startswith("#")}
 
     def reset(self):
-        self.users: Dict[int, Dict[str, Any]] = {}
-        self.users_by_email: Dict[str, int] = {}
-        self.tokens: Dict[str, int] = {}
+        self.users: Dict[int, Dict[str, Any]] = {
+            999: {
+                "id_user": 999,
+                "name": "Fajar Akbar",
+                "email": "demo@reqlint.app",
+                "password_hash": hashlib.sha256(b"demo12345").hexdigest(),
+                "tanggal_registrasi": datetime.now(timezone.utc).isoformat(),
+            }
+        }
+        self.users_by_email: Dict[str, int] = {"demo@reqlint.app": 999}
+        self.tokens: Dict[str, int] = {"jwt_demo_fajar_akbar": 999}
         self.documents: Dict[int, Dict[str, Any]] = {}
         self.drafts: Dict[int, Dict[str, Any]] = {}
         self.audits: Dict[int, Dict[str, Any]] = {}
         self.downloads: List[Dict[str, Any]] = []
+        # Token reset kata sandi: sha256(raw_token) -> {id_user, expires_at, used}
+        self.reset_tokens: Dict[str, Dict[str, Any]] = {}
+        self.last_reset_token: Optional[str] = None
         self._seq_user = 0
         self._seq_doc = 0
         self._seq_draft = 0
@@ -363,7 +375,7 @@ class ReqLintDirectEngine:
                     401,
                     {"status": "error", "message": "Kredensial tidak valid", "error_code": "INVALID_CREDENTIALS"},
                 )
-            token = f"jwt_{uuid.uuid4().hex}"
+            token = "jwt_demo_fajar_akbar" if email == "demo@reqlint.app" else f"jwt_{uuid.uuid4().hex}"
             self.tokens[token] = user["id_user"]
             return SimpleResponse(
                 200,
@@ -403,6 +415,79 @@ class ReqLintDirectEngine:
                         "tanggal_registrasi": user["tanggal_registrasi"],
                     },
                 },
+            )
+
+        # 4b. Auth: Forgot Password (selalu sukses untuk mencegah user enumeration)
+        if method == "POST" and path == "/api/v1/auth/forgot-password":
+            email = ((json_body or {}).get("email") or "").strip().lower()
+            if "@" not in email:
+                return SimpleResponse(
+                    422,
+                    {"status": "error", "message": "Validasi data gagal", "error_code": "VALIDATION_ERROR"},
+                )
+            uid = self.users_by_email.get(email)
+            if uid:
+                raw_token = secrets.token_urlsafe(48)
+                self.reset_tokens[hashlib.sha256(raw_token.encode()).hexdigest()] = {
+                    "id_user": uid,
+                    "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
+                    "used": False,
+                }
+                self.last_reset_token = raw_token
+            return SimpleResponse(
+                200,
+                {"status": "success", "message": "Jika email terdaftar, tautan reset telah dikirim.", "data": None},
+            )
+
+        # 4c. Auth: Reset Password dengan token
+        if method == "POST" and path == "/api/v1/auth/reset-password":
+            payload = json_body or {}
+            pwd = payload.get("password") or ""
+            pwd_conf = payload.get("password_confirmation") or ""
+            if len(pwd) < 8 or not re.search(r"[A-Za-z]", pwd) or not re.search(r"\d", pwd):
+                msg = "Sandi harus memuat minimal 8 karakter dengan huruf dan angka"
+                return SimpleResponse(
+                    422,
+                    {
+                        "status": "error",
+                        "message": msg,
+                        "error_code": "INVALID_PASSWORD",
+                        "errors": [{"field": "password", "message": msg}],
+                    },
+                )
+            if pwd != pwd_conf:
+                msg = "Konfirmasi sandi tidak cocok"
+                return SimpleResponse(
+                    422,
+                    {
+                        "status": "error",
+                        "message": msg,
+                        "error_code": "INVALID_PASSWORD",
+                        "errors": [{"field": "password_confirmation", "message": msg}],
+                    },
+                )
+            token_hash = hashlib.sha256(str(payload.get("token") or "").encode()).hexdigest()
+            record = self.reset_tokens.get(token_hash)
+            if not record or record["used"] or record["expires_at"] <= datetime.now(timezone.utc):
+                return SimpleResponse(
+                    400,
+                    {
+                        "status": "error",
+                        "message": "Token reset tidak valid atau sudah kedaluwarsa",
+                        "error_code": "INVALID_RESET_TOKEN",
+                    },
+                )
+            user = self.users.get(record["id_user"])
+            if not user:
+                return SimpleResponse(
+                    404,
+                    {"status": "error", "message": "Pengguna tidak ditemukan", "error_code": "USER_NOT_FOUND"},
+                )
+            user["password_hash"] = hashlib.sha256(pwd.encode()).hexdigest()
+            record["used"] = True
+            return SimpleResponse(
+                200,
+                {"status": "success", "message": "Kata sandi berhasil diperbarui. Silakan masuk.", "data": None},
             )
 
         # 5. Documents Upload
@@ -1047,16 +1132,43 @@ class FrontendSimulator:
     """
 
     DEMO_USER = {"name": "Fajar Akbar", "email": "demo@reqlint.app"}
+    DEMO_PASSWORD = "demo12345"
+    PROTECTED_ROUTES = ("/editor", "/history", "/help", "/contact")
+    PAGE_TITLE_KEYS = {"/help": "help.title", "/contact": "contact.title", "/history": "history.title"}
 
     def __init__(self, backend_engine: ReqLintDirectEngine):
         self.backend = backend_engine
+        self.translations = self._load_translations()
         self.reset()
+
+    @staticmethod
+    def _load_translations() -> Dict[str, Dict[str, str]]:
+        """Baca kamus terjemahan langsung dari `frontend-qa/src/lib/i18n.ts` agar teks uji selalu sinkron dengan UI."""
+        src_path = FRONTEND_DIR / "src" / "lib" / "i18n.ts"
+        if not src_path.exists():
+            return {}
+        src = src_path.read_text(encoding="utf-8")
+        pattern = re.compile(
+            r"'(?P<key>[\w.]+)':\s*\{\s*id:\s*(?P<q1>['\"])(?P<id>(?:\\.|(?!(?P=q1)).)*)(?P=q1)\s*,"
+            r"\s*en:\s*(?P<q2>['\"])(?P<en>(?:\\.|(?!(?P=q2)).)*)(?P=q2)\s*\}"
+        )
+        unescape = lambda s: s.replace("\\'", "'").replace('\\"', '"')
+        return {
+            m.group("key"): {"id": unescape(m.group("id")), "en": unescape(m.group("en"))}
+            for m in pattern.finditer(src)
+        }
+
+    def t(self, key: str, locale: Optional[str] = None) -> str:
+        loc = locale or self.ui_locale
+        entry = self.translations.get(key, {})
+        return entry.get(loc) or entry.get("id") or key
 
     def reset(self):
         self.current_page = "/"
         self.theme = "light"
-        self.users: Dict[str, Dict[str, str]] = {}
+        self.ui_locale = "id"
         self.current_user: Optional[Dict[str, str]] = None
+        self.auth_token: Optional[str] = None
         self.draft = {
             "language": "id",
             "text": (
@@ -1067,18 +1179,42 @@ class FrontendSimulator:
         self.audits: List[Dict[str, Any]] = []
         self.last_toast: Optional[str] = None
         self.last_error: Optional[str] = None
+        self.last_message: Optional[str] = None
         self.last_export: Optional[Dict[str, str]] = None
+        self.contact_form: Dict[str, str] = {}
+        self.reset_token: Optional[str] = None
+        self.history_filters: Dict[str, str] = {
+            "query": "",
+            "dateRange": "all",
+            "grade": "all",
+            "lang": "all",
+            "category": "all",
+            "sort": "newest",
+        }
         self._seq = 100
 
     def visit(self, route: str):
-        if route in ("/editor", "/history") or route.startswith("/audit/"):
+        base = route.split("?", 1)[0]
+        if base in self.PROTECTED_ROUTES or base.startswith("/audit/"):
             if not self.current_user:
                 self.current_page = "/login"
                 return
-        self.current_page = route
+        self.current_page = base
+        self.last_message = None
+        if base == "/reset-password":
+            from urllib.parse import parse_qs, urlparse
 
+            token = parse_qs(urlparse(route).query).get("token", [""])[0]
+            self.reset_token = token or None
+            if not token:
+                self.last_message = self.t("reset.invalid_token")
+
+    def page_title(self) -> Optional[str]:
+        key = self.PAGE_TITLE_KEYS.get(self.current_page)
+        return self.t(key) if key else None
+
+    # ---------------- Autentikasi (melalui REST API backend, sesuai frontend terbaru) ---------------- #
     def register_user(self, name: str, email: str, password: str, confirm: str, terms: bool = True) -> bool:
-        email_norm = email.strip().lower()
         if len(name.strip()) < 2:
             self.last_error = "Nama minimal 2 karakter."
             return False
@@ -1091,34 +1227,125 @@ class FrontendSimulator:
         if not terms:
             self.last_error = "Anda harus menyetujui ketentuan layanan."
             return False
-        if email_norm in self.users:
-            self.last_error = "Email ini sudah terdaftar. Silakan masuk."
+        resp = self.backend.request(
+            "POST",
+            "/api/v1/auth/register",
+            json_body={
+                "name": name.strip(),
+                "email": email.strip().lower(),
+                "password": password,
+                "password_confirmation": confirm,
+            },
+        )
+        if resp.status_code != 201:
+            self.last_error = resp.json().get("message")
             return False
-        self.users[email_norm] = {"name": name.strip(), "email": email_norm, "password": password}
-        self.current_user = {"name": name.strip(), "email": email_norm}
-        self.current_page = "/editor"
+        # Registrasi tidak lagi auto-login: pengguna diarahkan ke halaman /login
         self.last_error = None
+        self.last_toast = self.t("register.success")
+        self.current_user = None
+        self.current_page = "/login"
         return True
 
     def login_user(self, email: str, password: str) -> bool:
-        email_norm = email.strip().lower()
-        u = self.users.get(email_norm)
-        if not u or u["password"] != password:
-            self.last_error = "Email atau kata sandi salah."
+        resp = self.backend.request(
+            "POST",
+            "/api/v1/auth/login",
+            json_body={"email": email.strip().lower(), "password": password},
+        )
+        if resp.status_code != 200:
+            self.last_error = resp.json().get("message", "Kredensial tidak valid")
             return False
-        self.current_user = {"name": u["name"], "email": u["email"]}
+        data = resp.json()["data"]
+        self.auth_token = data["access_token"]
+        self.current_user = {"name": data["user"]["name"], "email": data["user"]["email"]}
         self.current_page = "/editor"
         self.last_error = None
         return True
 
     def login_demo(self):
-        self.users[self.DEMO_USER["email"]] = {**self.DEMO_USER, "password": "demo12345"}
-        self.current_user = dict(self.DEMO_USER)
+        if self.current_user and self.current_user.get("email") == self.DEMO_USER["email"]:
+            return
+        if not self.login_user(self.DEMO_USER["email"], self.DEMO_PASSWORD):
+            self.backend.request(
+                "POST",
+                "/api/v1/auth/register",
+                json_body={
+                    "name": self.DEMO_USER["name"],
+                    "email": self.DEMO_USER["email"],
+                    "password": self.DEMO_PASSWORD,
+                    "password_confirmation": self.DEMO_PASSWORD,
+                },
+            )
+            self.login_user(self.DEMO_USER["email"], self.DEMO_PASSWORD)
         self.current_page = "/editor"
 
     def logout_user(self):
         self.current_user = None
+        self.auth_token = None
         self.current_page = "/login"
+
+    # ---------------- Lupa & Reset Kata Sandi ---------------- #
+    def request_password_reset(self, email: str) -> str:
+        self.backend.request("POST", "/api/v1/auth/forgot-password", json_body={"email": email})
+        # UI selalu menampilkan pesan sukses (anti user-enumeration)
+        self.last_message = self.t("forgot.success")
+        return self.backend.last_reset_token
+
+    def submit_reset_password(self, password: str, confirm: str) -> bool:
+        self.last_error = None
+        if not self.reset_token:
+            self.last_message = self.t("reset.invalid_token")
+            return False
+        if len(password) < 8:
+            self.last_error = "Minimal 8 karakter"
+            return False
+        if password != confirm:
+            self.last_error = "Konfirmasi sandi tidak cocok"
+            return False
+        resp = self.backend.request(
+            "POST",
+            "/api/v1/auth/reset-password",
+            json_body={"token": self.reset_token, "password": password, "password_confirmation": confirm},
+        )
+        if resp.status_code != 200:
+            self.last_error = resp.json().get("message") or self.t("reset.invalid_token")
+            return False
+        self.last_message = self.t("reset.success")
+        return True
+
+    # ---------------- Halaman Kontak ---------------- #
+    def fill_contact_form(self, name: str, email: str, subject: str, message: str):
+        self.contact_form = {"name": name, "email": email, "subject": subject, "message": message}
+
+    def submit_contact_form(self) -> bool:
+        if not all(self.contact_form.get(k, "").strip() for k in ("name", "email", "subject", "message")):
+            self.last_error = "Semua kolom wajib diisi."
+            return False
+        if "@" not in self.contact_form["email"]:
+            self.last_error = "Format email tidak valid."
+            return False
+        self.last_message = self.t("contact.success")
+        self.last_toast = self.last_message
+        self.contact_form = {}
+        return True
+
+    # ---------------- Bahasa Antarmuka ---------------- #
+    def toggle_ui_locale(self):
+        self.ui_locale = "en" if self.ui_locale == "id" else "id"
+
+    def nav_labels(self) -> List[str]:
+        """Label tab navigasi sesuai logika `app-shell.tsx`."""
+        help_label = "Panduan" if self.t("help.title").startswith("Panduan") else "Help"
+        contact_label = "Kontak" if self.t("contact.title").startswith("Hubungi") else "Contact"
+        return [self.t("nav.editor"), self.t("nav.history"), help_label, contact_label]
+
+    def nav_route(self, label: str) -> Optional[str]:
+        routes = ["/editor", "/history", "/help", "/contact"]
+        for lbl, route in zip(self.nav_labels(), routes):
+            if lbl == label:
+                return route
+        return None
 
     def toggle_theme(self):
         self.theme = "dark" if self.theme == "light" else "light"
@@ -1242,3 +1469,55 @@ class FrontendSimulator:
     def clear_audits(self):
         self.audits = []
         self.last_toast = "Seluruh riwayat dihapus."
+
+    def set_history_filter(self, key: str, value: str):
+        self.history_filters[key] = value
+
+    def reset_history_filters(self):
+        self.history_filters = {
+            "query": "",
+            "dateRange": "all",
+            "grade": "all",
+            "lang": "all",
+            "category": "all",
+            "sort": "newest",
+        }
+
+    def filtered_audits(self) -> List[Dict[str, Any]]:
+        q = self.history_filters.get("query", "").strip().lower()
+        grade = self.history_filters.get("grade", "all")
+        lang = self.history_filters.get("lang", "all")
+        category = self.history_filters.get("category", "all")
+        sort_key = self.history_filters.get("sort", "newest")
+
+        cat_map = {
+            "ambiguity": "AMBIGUITY",
+            "incomplete": "TIDAK_LENGKAP",
+            "weak-directive": "WEAK_DIRECTIVE",
+            "passive-voice": "PASSIVE_VOICE",
+        }
+
+        items = []
+        for a in self.audits:
+            combined = f"{a['id']} {a['title']} {a['text']}".lower()
+            if q and q not in combined:
+                continue
+            if grade != "all" and a.get("grade") != grade:
+                continue
+            if lang != "all" and a.get("language") != lang:
+                continue
+            if category != "all":
+                target_cat = cat_map.get(category, category.upper())
+                if not any(f.get("kategori_cacat") == target_cat for f in a.get("findings", [])):
+                    continue
+            items.append(a)
+
+        if sort_key == "oldest":
+            items.sort(key=lambda x: x.get("createdAt", ""))
+        elif sort_key == "score-desc":
+            items.sort(key=lambda x: x.get("score", 0), reverse=True)
+        elif sort_key == "score-asc":
+            items.sort(key=lambda x: x.get("score", 0))
+        else:
+            items.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
+        return items
