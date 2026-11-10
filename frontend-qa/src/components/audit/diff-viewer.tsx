@@ -1,6 +1,9 @@
+'use client';
+
 import { ArrowRight, Columns2, MapPin } from 'lucide-react';
 import { useMemo } from 'react';
-import { diffLines, diffWords, type DiffOp } from '@/lib/analyzer';
+import { diffWords, type DiffOp } from '@/lib/analyzer';
+import { useT } from '@/lib/i18n';
 
 function Pane({
   title,
@@ -59,62 +62,70 @@ function Pane({
 }
 
 export function DiffViewer({
-  before,
-  after,
-  beforeScore,
-  afterScore,
-  onApply,
-  canApply,
+  original,
+  revised,
+  originalScore,
+  revisedScore,
 }: {
-  before: string;
-  after: string;
-  beforeScore: number;
-  afterScore: number;
-  onApply: () => void;
-  canApply: boolean;
+  original: string;
+  revised: string;
+  originalScore?: number;
+  revisedScore?: number;
 }) {
-  const { left, right } = useMemo(() => {
-    const ops = diffWords(before, after);
-    return { left: diffLines(ops, 'before'), right: diffLines(ops, 'after') };
-  }, [before, after]);
+  const t = useT();
+
+  const { leftLines, rightLines } = useMemo(() => {
+    const origLines = original.split('\n');
+    const revLines = revised.split('\n');
+    const max = Math.max(origLines.length, revLines.length);
+    const left: DiffOp[][] = [];
+    const right: DiffOp[][] = [];
+
+    for (let i = 0; i < max; i++) {
+      const a = origLines[i] ?? '';
+      const b = revLines[i] ?? '';
+      if (a === b) {
+        left.push([{ type: 'equal', text: a }]);
+        right.push([{ type: 'equal', text: b }]);
+      } else {
+        const ops = diffWords(a, b);
+        left.push(ops.filter((op) => op.type !== 'add'));
+        right.push(ops.filter((op) => op.type !== 'del'));
+      }
+    }
+    return { leftLines: left, rightLines: right };
+  }, [original, revised]);
+
+  const delta = originalScore !== undefined && revisedScore !== undefined ? revisedScore - originalScore : null;
 
   return (
-    <section className="card p-6" aria-label="Diff viewer">
+    <section className="card p-6" aria-label="Perbandingan sebelum dan sesudah revisi">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2.5 text-[16px] font-semibold">
           <Columns2 size={16} strokeWidth={1.6} className="text-muted" aria-hidden />
-          Diff Viewer <span className="font-normal text-muted">— Before / After</span>
+          {t('audit.diff_title')}
         </h2>
-        {canApply && (
-          <button type="button" onClick={onApply} className="btn-primary h-9 rounded-full px-4 text-[12.5px]">
-            Apply Revision <ArrowRight size={14} aria-hidden />
-          </button>
+        {delta !== null && (
+          <span className="pill bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+            Skor: {originalScore} → {revisedScore} ({delta >= 0 ? `+${delta}` : delta})
+          </span>
         )}
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-2">
-        <Pane title="Draf Orisinal" badge={`Skor ${beforeScore}`} badgeClass="bg-line/[0.06] text-muted" lines={left} />
+      <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <Pane
-          title="Revised Requirement"
-          badge={`Skor ${afterScore}`}
-          badgeClass="bg-emerald-100 text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-300"
-          lines={right}
+          title={t('audit.diff_before')}
+          badge={originalScore !== undefined ? `Skor ${originalScore}` : t('audit.original_badge')}
+          badgeClass="bg-line/[0.06] text-muted"
+          lines={leftLines}
+        />
+        <Pane
+          title={t('audit.diff_after')}
+          badge={revisedScore !== undefined ? `Skor ${revisedScore}` : t('audit.revised_badge')}
+          badgeClass="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+          lines={rightLines}
           highlight
         />
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
-        <span className="flex items-center gap-4">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-sm bg-rose-500/40" aria-hidden /> Dihapus
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-sm bg-emerald-500/40" aria-hidden /> Ditambahkan
-          </span>
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <MapPin size={12} aria-hidden /> Anda selalu memegang kendali atas revisi.
-        </span>
       </div>
     </section>
   );

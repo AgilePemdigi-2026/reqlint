@@ -13,6 +13,7 @@ import { apiCreateAudit, uploadDocumentPdf } from '@/lib/api';
 import { TEMPLATES } from '@/lib/templates';
 import { useFileImport } from '@/lib/use-file-import';
 import { MAX_CHARS } from '@/lib/validation';
+import { useT } from '@/lib/i18n';
 
 const LANGUAGES: Record<Language, string> = { id: 'Bahasa Indonesia', en: 'English' };
 
@@ -21,6 +22,7 @@ export default function EditorPage() {
   const draft = useDraft();
   const tipDismissed = useTipDismissed();
   const toast = useToast();
+  const t = useT();
   const fileInput = useRef<HTMLInputElement>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
@@ -53,59 +55,64 @@ export default function EditorPage() {
 
       if (res.data?.id_audit) {
         createAudit(draft.text, draft.language, String(res.data.id_audit));
-        toast('Draf diterima backend. Menjalankan model klasifikasi INVEST...');
+        toast(t('editor.toast_accepted'));
         router.push(`/audit/${res.data.id_audit}`);
         return;
       }
     } catch (err) {
-      console.warn('Backend API gagal dihubungi, beralih ke analisis lokal:', err);
+      console.warn('Gagal memanggil endpoint /audits FastAPI backend, menggunakan mode analisis lokal:', err);
     } finally {
       setAnalyzing(false);
     }
 
-    // Fallback bila server backend tidak tersedia
+    // Fallback mode lokal bila server backend mati
     const localAudit = createAudit(draft.text, draft.language);
-    toast('Menggunakan engine analisis mandiri browser.');
+    toast('Audit dibuat secara lokal (mode offline).');
     router.push(`/audit/${localAudit.id}`);
   }
 
-  /** Menangani unggah berkas PDF langsung ke endpoint backend */
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.name.toLowerCase().endsWith('.pdf')) {
+    if (file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf') {
       setUploadingPdf(true);
       try {
-        toast('Mengekstraksi teks PDF di server...');
         const docRes = await uploadDocumentPdf(file);
         if (docRes && docRes.teks) {
           setDraft({ ...draft, text: docRes.teks });
-          toast(`PDF "${docRes.nama_dokumen}" berhasil diekstraksi (${docRes.jumlah_karakter} karakter).`);
-          e.target.value = '';
-          return;
+          toast(
+            t('editor.toast_pdf_success', {
+              pages: docRes.jumlah_halaman,
+              chars: docRes.jumlah_karakter.toLocaleString(),
+            })
+          );
+          if (docRes.truncated) {
+            toast(t('editor.toast_pdf_truncated'));
+          }
         }
       } catch (err) {
-        console.warn('Ekstraksi PDF di backend gagal, menggunakan ekstraktor lokal:', err);
+        console.warn('Upload PDF backend gagal, menjalankan ekstraksi teks lokal:', err);
+        onLocalFile(e);
       } finally {
         setUploadingPdf(false);
       }
+    } else {
+      onLocalFile(e);
     }
-
-    onLocalFile(e);
   };
 
-  const isBusyUploading = uploadingPdf || localImporting;
+  const isBusyUploading = localImporting || uploadingPdf;
 
   return (
     <>
       <PageHeader
-        crumb="Workspace / Draf Kebutuhan"
-        title="Editor User Story"
-        subtitle="Tulis atau tempel draf kebutuhan Anda. ReqLint akan mengauditnya menggunakan model INVEST & ISO 29148."
+        crumb={t('editor.crumb')}
+        title={t('editor.title')}
+        subtitle={t('editor.subtitle')}
         right={
           <span className="pill bg-line/[0.06] text-muted">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden /> Backend FastAPI Terhubung
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden /> {t('editor.backend_connected')}
           </span>
         }
       />
@@ -118,7 +125,7 @@ export default function EditorPage() {
                 type="button"
                 onClick={toggle}
                 className="btn-ghost h-9 gap-2 rounded-full px-3 text-[12.5px]"
-                aria-label="Pilih bahasa analisis"
+                aria-label={t('editor.select_lang')}
               >
                 <Languages size={14} aria-hidden /> {LANGUAGES[draft.language]}
               </button>
@@ -160,11 +167,11 @@ export default function EditorPage() {
             >
               {isBusyUploading ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" aria-hidden /> Mengekstrak…
+                  <Loader2 size={16} className="animate-spin" aria-hidden /> {t('editor.extracting')}
                 </>
               ) : (
                 <>
-                  <FileUp size={16} aria-hidden /> Upload PDF
+                  <FileUp size={16} aria-hidden /> {t('editor.upload_pdf')}
                 </>
               )}
             </button>
@@ -173,22 +180,22 @@ export default function EditorPage() {
               align="right"
               trigger={({ toggle }) => (
                 <button type="button" onClick={toggle} className="btn-ghost h-11 whitespace-nowrap px-4 text-[14px]">
-                  <FileText size={16} aria-hidden /> Contoh Template <ChevronDown size={14} aria-hidden />
+                  <FileText size={16} aria-hidden /> {t('editor.template_samples')} <ChevronDown size={14} aria-hidden />
                 </button>
               )}
             >
               {(close) =>
-                TEMPLATES.map((t) => (
+                TEMPLATES.map((tmpl) => (
                   <button
-                    key={t.id}
+                    key={tmpl.id}
                     type="button"
                     className="menu-item"
                     onClick={() => {
-                      update({ text: t.text[draft.language] });
+                      update({ text: tmpl.text[draft.language] });
                       close();
                     }}
                   >
-                    {t.label[draft.language]}
+                    {tmpl.label[draft.language]}
                   </button>
                 ))
               }
@@ -208,20 +215,20 @@ export default function EditorPage() {
         <p className="mt-3.5 flex items-center gap-2 text-[12.5px] text-muted" aria-live="polite">
           <span className={`h-1.5 w-1.5 rounded-full ${stats.flagged ? 'bg-amber-500' : 'bg-emerald-500'}`} aria-hidden />
           {empty
-            ? 'Tulis atau tempel draf kebutuhan untuk mulai.'
+            ? t('editor.empty_prompt')
             : stats.flagged
-              ? 'Istilah yang digarisbawahi mungkin tidak terukur. Jalankan analisis untuk melihat evaluasi model INVEST.'
-              : 'Belum ada istilah tidak terukur yang terdeteksi saat mengetik. Jalankan analisis untuk audit lengkap.'}
+              ? t('editor.flagged_warn')
+              : t('editor.clean_info')}
         </p>
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3 text-[13.5px] text-muted">
             <span>
-              {stats.clauses} klausul · {stats.words} kata
+              {stats.clauses} {t('editor.clauses')} · {stats.words} {t('editor.words')}
             </span>
             <span className="h-4 w-px bg-line/10" aria-hidden />
             <span className="inline-flex items-center gap-1.5">
-              <Check size={14} aria-hidden /> Tersimpan otomatis
+              <Check size={14} aria-hidden /> {t('editor.auto_saved')}
             </span>
           </div>
           <button
@@ -232,11 +239,11 @@ export default function EditorPage() {
           >
             {analyzing ? (
               <>
-                <Loader2 size={18} className="animate-spin" aria-hidden /> Menganalisis...
+                <Loader2 size={18} className="animate-spin" aria-hidden /> {t('editor.btn_analyzing')}
               </>
             ) : (
               <>
-                Audit User Story <ArrowRight size={18} aria-hidden />
+                {t('editor.btn_audit')} <ArrowRight size={18} aria-hidden />
               </>
             )}
           </button>
@@ -249,10 +256,8 @@ export default function EditorPage() {
             <Lightbulb size={18} strokeWidth={1.6} aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[14.5px] font-semibold">Kebutuhan yang baik dimulai dari tiga hal.</p>
-            <p className="text-[12.5px] text-muted">
-              Tentukan siapa penggunanya (Role), apa yang dibutuhkan (Action), dan mengapa itu penting (Benefit). Model AI kami membantu menyempurnakan sisanya.
-            </p>
+            <p className="text-[14.5px] font-semibold">{t('editor.tip_title')}</p>
+            <p className="text-[12.5px] text-muted">{t('editor.tip_desc')}</p>
           </div>
           <a
             href="https://en.wikipedia.org/wiki/INVEST_(mnemonic)"
@@ -260,12 +265,12 @@ export default function EditorPage() {
             rel="noreferrer"
             className="hidden items-center gap-1.5 whitespace-nowrap text-[12.5px] font-medium text-accent hover:underline sm:inline-flex"
           >
-            Pelajari INVEST <ArrowRight size={14} aria-hidden />
+            {t('editor.tip_learn')} <ArrowRight size={14} aria-hidden />
           </a>
           <button
             type="button"
             onClick={dismissTip}
-            aria-label="Tutup tips"
+            aria-label={t('editor.tip_close')}
             className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-line/[0.06] hover:text-ink"
           >
             <X size={16} />

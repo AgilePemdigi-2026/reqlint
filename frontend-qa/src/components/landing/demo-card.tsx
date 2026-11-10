@@ -11,6 +11,7 @@ import { CATEGORY_LABEL, CATEGORY_STYLE, GRADE_BADGE, GRADE_COLOR, GRADE_LABEL }
 import { readTextFile } from '@/lib/pdf';
 import { TEMPLATES } from '@/lib/templates';
 import { MAX_CHARS } from '@/lib/validation';
+import { useUILocale } from '@/lib/i18n';
 
 const BAD = TEMPLATES.find((t) => t.id === 'login')!;
 const GOOD = TEMPLATES.find((t) => t.id === 'good')!;
@@ -24,6 +25,7 @@ const TABS: Array<{ lang: Language; label: string }> = [
 export function DemoCard() {
   const router = useRouter();
   const toast = useToast();
+  const locale = useUILocale();
   const fileInput = useRef<HTMLInputElement>(null);
   const [language, setLanguage] = useState<Language>('id');
   const [text, setText] = useState(BAD.text.id);
@@ -52,78 +54,72 @@ export function DemoCard() {
   }
 
   function openFullReport() {
-    // Simpan sebagai draf; /editor meminta login bila belum masuk, lalu melanjutkan dengan draf ini.
     setDraft({ text, language });
     router.push('/editor');
   }
 
   return (
-    <div className="overflow-hidden rounded-[22px] border border-black/[0.08] bg-white shadow-[0_10px_40px_-14px_rgba(0,0,0,0.2)] dark:border-white/10 dark:bg-[#1c1c20]">
-      {/* Tab bahasa */}
-      <div role="tablist" aria-label="Bahasa analisis" className="grid grid-cols-2 border-b border-black/[0.08] dark:border-white/10">
-        {TABS.map(({ lang, label }) => {
-          const active = language === lang;
-          return (
+    <div className="card overflow-hidden rounded-[28px] border border-black/10 bg-white/70 shadow-2xl backdrop-blur-md dark:border-white/10 dark:bg-[#1c1c1f]/80">
+      {/* Header kartu */}
+      <div className="flex items-center justify-between border-b border-black/[0.08] px-7 py-4 dark:border-white/10">
+        <div className="flex items-center gap-1 rounded-full bg-black/[0.05] p-1 dark:bg-white/[0.08]">
+          {TABS.map((tab) => (
             <button
-              key={lang}
+              key={tab.lang}
               type="button"
-              role="tab"
-              aria-selected={active}
-              onClick={() => load(BAD.text[lang], lang)}
-              className={`flex items-center justify-center gap-2.5 py-[18px] text-[16px] transition ${
-                active
-                  ? 'bg-[#e4efe8] font-semibold text-emerald-900 shadow-[inset_0_-3px_0_0_#166534] dark:bg-emerald-400/15 dark:text-emerald-200 dark:shadow-[inset_0_-3px_0_0_#6ee7b7]'
-                   : 'bg-white text-ink/60 hover:bg-black/[0.03] hover:text-ink dark:bg-[#1c1c20] dark:hover:bg-white/[0.04]'
-                  } ${lang === 'id' ? 'border-r border-black/[0.08] dark:border-white/10' : ''}`}
+              onClick={() => load(BAD.text[tab.lang], tab.lang)}
+              className={`rounded-full px-4 py-1.5 text-[14px] font-medium transition ${
+                language === tab.lang
+                  ? 'bg-white text-ink shadow-sm dark:bg-card'
+                  : 'text-ink/60 hover:text-ink'
+              }`}
             >
-              <Languages size={18} strokeWidth={1.6} aria-hidden /> {label}
+              {tab.label}
             </button>
-          );
-        })}
-      </div>
-
-      <div className="px-7 pt-6">
-        <div className="flex flex-wrap items-center gap-3 text-[18px] text-ink/45">
-          Tempel teks Anda atau
-          <input
-            ref={fileInput}
-            type="file"
-            accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"
-            className="sr-only"
-            tabIndex={-1}
-            aria-label="Unggah berkas PDF atau teks"
-            onChange={onFile}
-          />
-          <button
-            type="button"
-            onClick={() => fileInput.current?.click()}
-            className="inline-flex items-center gap-2 rounded-full bg-black/[0.06] px-4 py-2 text-[14.5px] font-medium text-ink/80 transition hover:bg-black/10 dark:bg-white/10 dark:hover:bg-white/15"
-          >
-            <FileUp size={16} aria-hidden /> Upload PDF
-          </button>
+          ))}
         </div>
 
+        <input
+          ref={fileInput}
+          type="file"
+          accept=".pdf,.txt,.md"
+          className="sr-only"
+          onChange={onFile}
+        />
+        <button
+          type="button"
+          onClick={() => fileInput.current?.click()}
+          className="inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-[13.5px] font-medium text-ink/70 transition hover:bg-black/[0.04] hover:text-ink dark:hover:bg-white/[0.06]"
+        >
+          <FileUp size={15} /> {locale === 'id' ? 'Unggah berkas' : 'Upload file'}
+        </button>
+      </div>
+
+      {/* Area input teks */}
+      <div className="px-7 pt-6">
         <textarea
           value={text}
-          onChange={(e) => load(e.target.value)}
-          maxLength={MAX_CHARS}
-          spellCheck={false}
-          aria-label="Draf kebutuhan"
-          placeholder="Contoh: Sebagai pengguna, saya ingin … agar …"
-          className="mt-4 block h-[260px] w-full resize-none bg-transparent text-[16.5px] leading-[1.75] text-ink outline-none placeholder:text-ink/30"
+          onChange={(e) => {
+            setText(e.target.value.slice(0, MAX_CHARS));
+            setResult(null);
+          }}
+          rows={5}
+          className="field w-full resize-none rounded-2xl p-4 font-mono text-[14.5px] leading-relaxed"
+          placeholder={locale === 'id' ? 'Tulis user story Anda di sini...' : 'Type your user story here...'}
         />
       </div>
 
+      {/* Hasil evaluasi ringkas jika sudah dianalisis */}
       {result && (
-        <div className="mx-6 mb-4 rounded-2xl border border-line/[0.08] bg-black/[0.02] p-4 dark:bg-white/[0.03]" aria-live="polite">
-          <div className="flex items-center gap-5">
+        <div className="mx-7 mb-4 mt-2 rounded-2xl border border-line/[0.08] bg-line/[0.02] p-4">
+          <div className="flex items-center gap-4">
             <div role="img" aria-label={`Skor ${result.score} dari 100`}>
               <ScoreRing score={result.score} color={GRADE_COLOR[result.grade]} size={88} />
             </div>
             <div className="min-w-0 flex-1">
               <span className={`pill ${GRADE_BADGE[result.grade]}`}>{GRADE_LABEL[result.grade]}</span>
               <p className="mt-2 text-[13.5px] text-ink/60">
-                {result.findings.length} temuan · ISO 29148 {result.compliance.iso29148}% · INVEST {result.compliance.invest}%
+                {result.findings.length} {locale === 'id' ? 'temuan' : 'findings'} · ISO 29148 {result.compliance.iso29148}% · INVEST {result.compliance.invest}%
               </p>
             </div>
           </div>
@@ -145,34 +141,36 @@ export function DemoCard() {
             onClick={openFullReport}
             className="mt-4 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-accent hover:underline"
           >
-            Lihat laporan lengkap, saran revisi &amp; diff <ArrowRight size={14} aria-hidden />
+            {locale === 'id' ? 'Lihat laporan lengkap, saran revisi & diff' : 'View full report, revision & diff'}{' '}
+            <ArrowRight size={14} aria-hidden />
           </button>
         </div>
       )}
 
       {/* Contoh */}
       <div className="flex flex-wrap items-center gap-3 px-7 pb-6 pt-2 text-[16px] text-ink/55">
-        Contoh:
+        {locale === 'id' ? 'Contoh:' : 'Examples:'}
         <button
           type="button"
           onClick={() => load(BAD.text[language])}
           className="rounded-lg bg-[#fbf1df] px-3.5 py-2 text-[15px] text-[#6b4a12] transition hover:brightness-95 dark:bg-amber-400/15 dark:text-amber-200"
         >
-          Draf bermasalah
+          {locale === 'id' ? 'Draf bermasalah' : 'Defective draft'}
         </button>
         <button
           type="button"
           onClick={() => load(GOOD.text[language])}
           className="rounded-lg bg-[#dff1ea] px-3.5 py-2 text-[15px] text-[#1c5a45] transition hover:brightness-95 dark:bg-emerald-400/15 dark:text-emerald-200"
         >
-          Draf yang baik
+          {locale === 'id' ? 'Draf yang baik' : 'Good draft'}
         </button>
       </div>
 
       {/* Footer kartu */}
       <div className="flex items-center justify-between gap-4 border-t border-black/[0.08] px-7 py-5 dark:border-white/10">
         <span className="text-[15px] text-ink/50">
-          {text.length.toLocaleString('id-ID')}/{MAX_CHARS.toLocaleString('id-ID')} karakter
+          {text.length.toLocaleString(locale === 'en' ? 'en-US' : 'id-ID')}/{MAX_CHARS.toLocaleString(locale === 'en' ? 'en-US' : 'id-ID')}{' '}
+          {locale === 'id' ? 'karakter' : 'characters'}
         </span>
         <button
           type="button"
@@ -180,7 +178,7 @@ export function DemoCard() {
           onClick={() => setResult(analyze(text, language))}
           className="btn-primary h-14 gap-3 rounded-full px-9 text-[18px]"
         >
-          Analisis <ArrowRight size={20} aria-hidden />
+          {locale === 'id' ? 'Analisis' : 'Analyze'} <ArrowRight size={20} aria-hidden />
         </button>
       </div>
     </div>

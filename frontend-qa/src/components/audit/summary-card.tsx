@@ -4,6 +4,7 @@ import { AudioLines, Check, FlaskConical, Flag, ListChecks, ScanLine, ShieldChec
 import { useState } from 'react';
 import { CATEGORIES, type AnalysisResult, type Category } from '@/lib/analyzer';
 import { CATEGORY_LABEL } from '@/lib/format';
+import { useT } from '@/lib/i18n';
 
 const ICONS: Record<Category, typeof ScanLine> = {
   ambiguity: ScanLine,
@@ -27,17 +28,18 @@ function Meter({ label, value }: { label: string; value: number }) {
 
 export function SummaryCard({ result }: { result: AnalysisResult }) {
   const [open, setOpen] = useState(false);
+  const t = useT();
   const total = result.findings.length;
 
   return (
     <section className="card flex flex-col p-6" aria-label="Ringkasan hasil analisis">
       <div className="flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2.5 text-[16px] font-semibold">
-          Ringkasan Hasil Analisis
-          <span className="pill bg-line/[0.06] px-2 py-0.5 text-[11px] text-muted">{total} temuan</span>
+          {t('audit.summary_title')}
+          <span className="pill bg-line/[0.06] px-2 py-0.5 text-[11px] text-muted">{t('audit.findings_count', { count: total })}</span>
         </h2>
         <span className="inline-flex items-center gap-1.5 text-[12px] text-muted">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden /> Analisis selesai
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden /> {t('audit.analysis_done')}
         </span>
       </div>
 
@@ -59,7 +61,7 @@ export function SummaryCard({ result }: { result: AnalysisResult }) {
       <div className="mt-auto pt-5">
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/[0.07] pt-4">
           <span className="inline-flex items-center gap-2 text-[12px] text-muted">
-            <ShieldCheck size={14} aria-hidden /> Kepatuhan standar
+            <ShieldCheck size={14} aria-hidden /> {t('audit.standard_compliance')}
           </span>
           <span className="inline-flex items-center gap-5">
             <Meter label="ISO 29148" value={result.compliance.iso29148} />
@@ -68,7 +70,7 @@ export function SummaryCard({ result }: { result: AnalysisResult }) {
               type="button"
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
-              aria-label="Lihat detail INVEST"
+              aria-label={t('audit.details_invest')}
               className="text-muted transition hover:text-ink"
             >
               <ArrowUpRight size={14} className={open ? 'rotate-90 transition' : 'transition'} />

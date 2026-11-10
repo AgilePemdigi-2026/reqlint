@@ -43,6 +43,7 @@ import {
 } from '@/lib/api';
 import { buildExport, copyText, download, toMarkdown, type ExportFormat } from '@/lib/export';
 import { formatDate } from '@/lib/format';
+import { useT, useUILocale } from '@/lib/i18n';
 
 const EXPORTS: Array<{ format: ExportFormat; label: string }> = [
   { format: 'md', label: 'Markdown (.md)' },
@@ -54,23 +55,24 @@ export default function AuditPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
+  const t = useT();
+  const locale = useUILocale();
 
   const localAudit = useAudit(id);
 
   const [backendDetail, setBackendDetail] = useState<BackendAuditDetail | null>(null);
   const [loadingBackend, setLoadingBackend] = useState<boolean>(true);
-  const [pollingStage, setPollingStage] = useState<string>('Menyiapkan pipeline analisis...');
+  const [pollingStage, setPollingStage] = useState<string>('Memulai audit kebutuhan...');
   const [applyingRevision, setApplyingRevision] = useState<boolean>(false);
   const [reanalyzing, setReanalyzing] = useState<boolean>(false);
 
-  // 1. Fetch & Poll Audit dari Backend FastAPI jika ID berupa angka
+  // 1. Ambil detail audit dari Backend FastAPI (Polling sampai COMPLETED/PARTIAL)
   useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
     let cancelled = false;
+    let timer: NodeJS.Timeout | null = null;
 
-    async function loadAudit() {
-      // Jika format ID lokal klasik (mis. AUD-101) dan ada di local store, utamakan local
-      if (id.startsWith('AUD-') && localAudit) {
+    async function fetchAudit() {
+      if (!id || id.startsWith('AUD-')) {
         setLoadingBackend(false);
         return;
       }
@@ -83,54 +85,53 @@ export default function AuditPage() {
         if (res.data) {
           if (res.data.status_audit === 'PROCESSING') {
             setPollingStage('Stage 1: Pengecekan Sintaks Connextra & Bau Teks...');
-            // Mulai loop polling status
+            // Polling status secara berkala
             timer = setInterval(async () => {
               try {
                 const statusRes = await apiGetAuditStatus(id);
                 if (cancelled) return;
 
-                if (statusRes.data?.stage1_ready) {
+                if (statusRes.data?.stage2_status === 'PROCESSING') {
                   setPollingStage('Stage 2: Model Klasifikasi INVEST (Machine Learning)...');
                 }
 
-                if (statusRes.data?.status_audit !== 'PROCESSING') {
+                if (statusRes.data?.status_audit === 'COMPLETED' || statusRes.data?.status_audit === 'PARTIAL') {
                   if (timer) clearInterval(timer);
-                  // Ambil detail lengkap setelah pipeline selesai
                   const finalDetail = await apiGetAuditDetail(id);
-                  if (!cancelled && finalDetail.data) {
+                  if (cancelled) return;
+                  if (finalDetail.data) {
                     setBackendDetail(finalDetail.data);
                     setLoadingBackend(false);
                   }
                 }
-              } catch (pollErr) {
-                console.warn('Polling error:', pollErr);
+              } catch {
+                if (timer) clearInterval(timer);
+                if (!cancelled) setLoadingBackend(false);
               }
-            }, 1000);
+            }, 1200);
           } else {
             setBackendDetail(res.data);
             setLoadingBackend(false);
           }
         }
       } catch (err) {
-        console.warn('Gagal memuat audit dari backend, memeriksa penyimpanan lokal:', err);
-        setLoadingBackend(false);
+        console.warn('Gagal memuat audit dari backend, beralih ke analisis lokal:', err);
+        if (!cancelled) setLoadingBackend(false);
       }
     }
 
-    loadAudit();
+    fetchAudit();
 
     return () => {
       cancelled = true;
       if (timer) clearInterval(timer);
     };
-  }, [id, localAudit]);
+  }, [id]);
 
-  // 2. Adaptasi Data: Gunakan data Backend jika tersedia, atau fallback ke Local
+  // 2. Adaptasi Model Backend ke Model Frontend (Local Fallback Ready)
   const adapted = useMemo(() => {
-    if (backendDetail) {
-      return adaptBackendAuditToAnalysisResult(backendDetail);
-    }
-    return null;
+    if (!backendDetail) return null;
+    return adaptBackendAuditToAnalysisResult(backendDetail);
   }, [backendDetail]);
 
   const result: AnalysisResult | null = useMemo(() => {
@@ -170,22 +171,22 @@ export default function AuditPage() {
           </span>
         </div>
         <div>
-          <h2 className="text-[20px] font-semibold text-ink">Menjalankan Pipeline Audit Kebutuhan</h2>
+          <h2 className="text-[20px] font-semibold text-ink">{t('audit.running_pipeline')}</h2>
           <p className="mt-1.5 text-[14px] text-muted">{pollingStage}</p>
         </div>
 
         <div className="w-full max-w-sm rounded-xl border border-line/[0.08] bg-line/[0.02] p-4 text-left space-y-2.5">
           <div className="flex items-center justify-between text-[12px]">
             <span className="flex items-center gap-2">
-              <CheckCircle2 size={14} className="text-emerald-500" /> Stage 1: Rule-based &amp; Linting
+              <CheckCircle2 size={14} className="text-emerald-500" /> {t('audit.stage1_name')}
             </span>
-            <span className="text-muted font-mono">Selesai</span>
+            <span className="text-muted font-mono">{t('audit.stage_done')}</span>
           </div>
           <div className="flex items-center justify-between text-[12px]">
             <span className="flex items-center gap-2">
-              <RefreshCw size={14} className="animate-spin text-accent" /> Stage 2: INVEST Model (spaCy + ML)
+              <RefreshCw size={14} className="animate-spin text-accent" /> {t('audit.stage2_name')}
             </span>
-            <span className="text-accent font-mono">Memproses...</span>
+            <span className="text-accent font-mono">{t('audit.stage_processing')}</span>
           </div>
         </div>
       </div>
@@ -197,12 +198,12 @@ export default function AuditPage() {
     return (
       <div className="card mx-auto flex max-w-[520px] flex-col items-center gap-3 px-8 py-14 text-center">
         <FileSearch size={30} strokeWidth={1.5} className="text-muted" aria-hidden />
-        <h1 className="text-[20px] font-semibold">Audit tidak ditemukan</h1>
+        <h1 className="text-[20px] font-semibold">{t('audit.not_found_title')}</h1>
         <p className="text-[14px] text-muted">
-          Audit <span className="font-mono">{id}</span> tidak ditemukan di server maupun di browser ini.
+          {t('audit.not_found_desc', { id: String(id) })}
         </p>
         <Link href="/editor" className="btn-primary mt-2 h-11 px-6 text-[14px]">
-          Kembali ke editor
+          {t('audit.back_editor')}
         </Link>
       </div>
     );
@@ -220,7 +221,7 @@ export default function AuditPage() {
       try {
         const res = await apiApplyAudit(backendDetail.id_audit, ['rewrite', 'acceptance_criteria']);
         if (res.data) {
-          toast('Rekomendasi AI berhasil diterapkan ke draf!');
+          toast(t('audit.toast_apply_success'));
           // Segarkan data audit
           const refreshed = await apiGetAuditDetail(backendDetail.id_audit);
           if (refreshed.data) setBackendDetail(refreshed.data);
@@ -280,7 +281,7 @@ export default function AuditPage() {
       language: currentLang,
     };
     const ok = await copyText(toMarkdown(dummyAudit, result, revision));
-    toast(ok ? 'Hasil audit disalin (Markdown).' : 'Gagal menyalin. Coba gunakan fitur Export.');
+    toast(ok ? t('audit.toast_copied') : 'Gagal menyalin. Coba gunakan fitur Export.');
   };
 
   /** Ekspor Dokumen Resmi */
@@ -319,14 +320,14 @@ export default function AuditPage() {
   return (
     <>
       <PageHeader
-        crumb="Workspace / Analisis Kebutuhan"
-        title="Hasil Audit User Story"
+        crumb={t('audit.crumb')}
+        title={t('audit.title')}
         subtitle={
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px]">
             <span className="font-mono bg-line/[0.06] px-2 py-0.5 rounded text-ink font-medium">#{id}</span>
             <span aria-hidden>·</span>
             <span className="inline-flex items-center gap-1.5">
-              <CalendarDays size={13} aria-hidden /> {formatDate(auditCreatedAt)}
+              <CalendarDays size={13} aria-hidden /> {formatDate(auditCreatedAt, locale)}
             </span>
             <span aria-hidden>·</span>
             <span className="truncate max-w-[280px] font-medium">{auditTitle}</span>
@@ -348,65 +349,74 @@ export default function AuditPage() {
               disabled={reanalyzing}
               className="btn-ghost h-10 rounded-full px-4 text-[13px] disabled:opacity-60"
             >
-              <RefreshCw size={14} className={reanalyzing ? 'animate-spin' : ''} aria-hidden /> Analisis Ulang
+              <RefreshCw size={14} className={reanalyzing ? 'animate-spin' : ''} aria-hidden /> {t('audit.rerun')}
             </button>
             <button type="button" onClick={copyResult} className="btn-ghost h-10 rounded-full px-4 text-[13px]">
-              <Copy size={14} aria-hidden /> Salin Hasil
+              <Copy size={14} aria-hidden /> {t('audit.copy')}
             </button>
             <Popover
               align="right"
-              trigger={({ toggle }) => (
-                <button type="button" onClick={toggle} className="btn-primary h-10 rounded-full px-4 text-[13px]">
-                  <Download size={14} aria-hidden /> Export <ChevronDown size={13} aria-hidden />
+              trigger={({ toggle: toggleExp }) => (
+                <button type="button" onClick={toggleExp} className="btn-ghost h-10 rounded-full px-4 text-[13px]">
+                  <Download size={14} aria-hidden /> {t('audit.export')} <ChevronDown size={13} aria-hidden />
                 </button>
               )}
             >
               {(close) =>
-                EXPORTS.map(({ format, label }) => (
+                EXPORTS.map((e) => (
                   <button
-                    key={format}
+                    key={e.format}
                     type="button"
                     className="menu-item"
                     onClick={() => {
-                      exportAs(format);
+                      exportAs(e.format);
                       close();
                     }}
                   >
-                    {label}
+                    {e.label}
                   </button>
                 ))
               }
             </Popover>
+            <button
+              type="button"
+              onClick={() => openInEditor(currentText)}
+              className="btn-primary h-10 rounded-full px-5 text-[13px]"
+            >
+              {t('audit.open_editor')} <ArrowRight size={14} aria-hidden />
+            </button>
           </div>
         }
       />
 
-      <div className="space-y-5">
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,340px)_1fr]">
+      <div className="space-y-6">
+        {/* Row 1: Scorecard & Summary */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-[340px_1fr]">
           <ScoreCard result={result} />
           <SummaryCard result={result} />
         </div>
 
+        {/* Row 2: Temuan Cacat */}
         <FindingsTable findings={result.findings} onOpenEditor={() => openInEditor(currentText)} />
 
-        <div className="grid gap-5 md:grid-cols-2">
+        {/* Row 3: Rekomendasi AI & Kriteria Penerimaan */}
+        <div className="grid gap-6 md:grid-cols-2">
           <RevisionCard
             revision={revision}
-            remaining={revision.result.findings.length}
+            remaining={result.findings.length}
             onApply={applyRevision}
-            onEdit={() => openInEditor(revision.changed ? revision.text : currentText)}
+            onEdit={() => openInEditor(revision.text)}
           />
-          <AcceptanceCard criteria={criteria} />
+          {criteria && <AcceptanceCard criteria={criteria} />}
         </div>
 
+        {/* Row 4: Diff Viewer */}
         {revision.changed && (
           <DiffViewer
-            before={currentText}
-            after={revision.text}
-            beforeScore={result.score}
-            afterScore={revision.result.score}
-            onApply={applyRevision}
-            canApply={!applyingRevision}
+            original={currentText}
+            revised={revision.text}
+            originalScore={result.score}
+            revisedScore={backendDetail?.diff?.revised?.skor ?? (result ? Math.min(100, result.score + 15) : undefined)}
           />
         )}
       </div>

@@ -45,6 +45,7 @@ export const GRADE_BADGE: Record<Grade, string> = {
   poor: 'bg-rose-100 text-rose-800 dark:bg-rose-400/15 dark:text-rose-300',
 };
 
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+export function formatDate(iso: string, locale: 'id' | 'en' = 'id'): string {
+  const loc = locale === 'en' ? 'en-US' : 'id-ID';
+  return new Date(iso).toLocaleDateString(loc, { day: '2-digit', month: 'short', year: 'numeric' });
 }

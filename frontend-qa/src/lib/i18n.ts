@@ -19,13 +19,15 @@ export function useUILocale(): UILocale {
 }
 
 /* ────────────────────────────────────────────
-   Kamus terjemahan UI
+   Kamus terjemahan UI Lengkap (Bahasa Indonesia & English)
    ──────────────────────────────────────────── */
 
 const translations: Record<string, Record<UILocale, string>> = {
   // ─── Navbar & Shell ───
   'nav.editor': { id: 'Editor', en: 'Editor' },
   'nav.history': { id: 'History Audit', en: 'Audit History' },
+  'nav.help': { id: 'Panduan', en: 'Help Guide' },
+  'nav.contact': { id: 'Kontak', en: 'Contact' },
   'nav.workspace': { id: 'Personal workspace', en: 'Personal workspace' },
   'nav.notifications': { id: 'Notifikasi', en: 'Notifications' },
   'nav.notif_welcome': { id: 'Selamat datang di ReqLint. Belum ada notifikasi lain.', en: 'Welcome to ReqLint. No other notifications.' },
@@ -34,6 +36,37 @@ const translations: Record<string, Record<UILocale, string>> = {
   'nav.theme_dark': { id: 'Tema gelap', en: 'Dark theme' },
   'nav.logout': { id: 'Keluar', en: 'Sign out' },
   'nav.footer_jwt': { id: 'Sesi autentikasi diamankan dengan token JWT FastAPI.', en: 'Authentication session secured with FastAPI JWT token.' },
+  'nav.version': { id: 'ReqLint v1.0 · Arsitektur Terintegrasi', en: 'ReqLint v1.0 · Integrated Architecture' },
+
+  // ─── Landing Navigation ───
+  'landing.features': { id: 'Fitur', en: 'Features' },
+  'landing.how_it_works': { id: 'Cara Kerja', en: 'How It Works' },
+  'landing.standards': { id: 'Standar', en: 'Standards' },
+  'landing.faq': { id: 'FAQ', en: 'FAQ' },
+  'landing.open_workspace': { id: 'Buka workspace', en: 'Open workspace' },
+  'landing.login': { id: 'Masuk', en: 'Sign in' },
+  'landing.open_editor': { id: 'Buka editor', en: 'Open editor' },
+  'landing.start_free': { id: 'Mulai gratis', en: 'Get started free' },
+
+  // ─── Landing Hero & Sections ───
+  'hero.badge': { id: 'Mengacu pada ISO 29148 & INVEST', en: 'Aligned with ISO 29148 & INVEST' },
+  'hero.title_1': { id: 'Cek kualitas User Story', en: 'Check User Story quality' },
+  'hero.title_2': { id: 'sebelum jadi bug.', en: 'before it becomes a bug.' },
+  'hero.description': {
+    id: 'ReqLint mengaudit draf kebutuhan Anda secara real-time: menandai istilah ambigu, kalimat pasif, dan klausul yang tidak bisa diuji — lengkap dengan skor, saran revisi, dan acceptance criteria. Cocok untuk analis bisnis, product owner, QA, dan mahasiswa rekayasa perangkat lunak.',
+    en: 'ReqLint audits your requirements draft in real-time: flagging ambiguous terms, passive voice, and non-testable clauses — complete with score, revision recommendations, and acceptance criteria. Ideal for business analysts, product owners, QA, and software engineering students.',
+  },
+  'hero.start_box_title': { id: 'Mulai dalam hitungan detik', en: 'Start in seconds' },
+  'hero.start_box_desc': {
+    id: 'Tempel dari Jira, Confluence, Notion, atau Google Docs — atau unggah PDF. Tanpa instalasi.',
+    en: 'Paste from Jira, Confluence, Notion, or Google Docs — or upload PDF. No installation required.',
+  },
+  'hero.cta_register': { id: 'Daftar gratis', en: 'Sign up free' },
+  'hero.cta_editor': { id: 'Buka editor', en: 'Open editor' },
+  'hero.security_note': {
+    id: 'Analisis berjalan di browser Anda — teks tidak dikirim ke server pihak ketiga.',
+    en: 'Analysis runs in your browser — text is never shared with third-party servers.',
+  },
 
   // ─── Login Page ───
   'login.title': { id: 'Selamat datang kembali', en: 'Welcome back' },
@@ -73,6 +106,108 @@ const translations: Record<string, Record<UILocale, string>> = {
   'register.login': { id: 'Masuk', en: 'Sign in' },
   'register.success': { id: 'Pendaftaran berhasil, silakan masuk', en: 'Registration successful, please sign in' },
   'register.terms_toast': { id: 'Halaman kebijakan privasi dan ketentuan dapat diakses di portal dokumentasi.', en: 'Privacy policy and terms pages are accessible in the documentation portal.' },
+
+  // ─── Editor Page ───
+  'editor.crumb': { id: 'Workspace / Draf Kebutuhan', en: 'Workspace / Requirements Draft' },
+  'editor.title': { id: 'Editor User Story', en: 'User Story Editor' },
+  'editor.subtitle': {
+    id: 'Tulis atau tempel draf kebutuhan Anda. ReqLint akan mengauditnya menggunakan model INVEST & ISO 29148.',
+    en: 'Write or paste your requirements draft. ReqLint will audit it using INVEST & ISO 29148 models.',
+  },
+  'editor.backend_connected': { id: 'Backend FastAPI Terhubung', en: 'FastAPI Backend Connected' },
+  'editor.select_lang': { id: 'Pilih bahasa analisis', en: 'Select analysis language' },
+  'editor.upload_pdf': { id: 'Upload PDF', en: 'Upload PDF' },
+  'editor.extracting': { id: 'Mengekstrak…', en: 'Extracting…' },
+  'editor.template_samples': { id: 'Contoh Template', en: 'Sample Templates' },
+  'editor.empty_prompt': { id: 'Tulis atau tempel draf kebutuhan untuk mulai.', en: 'Write or paste a requirements draft to get started.' },
+  'editor.flagged_warn': {
+    id: 'Istilah yang digarisbawahi mungkin tidak terukur. Jalankan analisis untuk melihat evaluasi model INVEST.',
+    en: 'Underlined terms may be non-measurable. Run analysis to see the INVEST model evaluation.',
+  },
+  'editor.clean_info': {
+    id: 'Belum ada istilah tidak terukur yang terdeteksi saat mengetik. Jalankan analisis untuk audit lengkap.',
+    en: 'No non-measurable terms detected while typing. Run analysis for a full audit.',
+  },
+  'editor.clauses': { id: 'klausul', en: 'clauses' },
+  'editor.words': { id: 'kata', en: 'words' },
+  'editor.auto_saved': { id: 'Tersimpan otomatis', en: 'Auto-saved' },
+  'editor.btn_audit': { id: 'Audit User Story', en: 'Audit User Story' },
+  'editor.btn_analyzing': { id: 'Menganalisis...', en: 'Analyzing...' },
+  'editor.tip_title': { id: 'Kebutuhan yang baik dimulai dari tiga hal.', en: 'Good requirements start from three things.' },
+  'editor.tip_desc': {
+    id: 'Tentukan siapa penggunanya (Role), apa yang dibutuhkan (Action), dan mengapa itu penting (Benefit). Model AI kami membantu menyempurnakan sisanya.',
+    en: 'Define who the user is (Role), what they need (Action), and why it matters (Benefit). Our AI model helps refine the rest.',
+  },
+  'editor.tip_learn': { id: 'Pelajari INVEST', en: 'Learn INVEST' },
+  'editor.tip_close': { id: 'Tutup tips', en: 'Dismiss tips' },
+  'editor.toast_accepted': {
+    id: 'Draf diterima backend. Menjalankan model klasifikasi INVEST...',
+    en: 'Draft accepted by backend. Running INVEST classification model...',
+  },
+  'editor.toast_pdf_success': {
+    id: 'PDF berhasil diekstrak ({pages} hal, {chars} karakter).',
+    en: 'PDF extracted successfully ({pages} pages, {chars} characters).',
+  },
+  'editor.toast_pdf_truncated': {
+    id: 'PDF dipotong karena melebihi batas 100.000 karakter.',
+    en: 'PDF was truncated because it exceeds the 100,000 character limit.',
+  },
+
+  // ─── Audit Detail Page ───
+  'audit.crumb': { id: 'Workspace / Analisis Kebutuhan', en: 'Workspace / Requirements Analysis' },
+  'audit.title': { id: 'Hasil Audit User Story', en: 'User Story Audit Results' },
+  'audit.rerun': { id: 'Analisis Ulang', en: 'Re-analyze' },
+  'audit.copy': { id: 'Salin', en: 'Copy' },
+  'audit.export': { id: 'Ekspor', en: 'Export' },
+  'audit.open_editor': { id: 'Buka di Editor', en: 'Open in Editor' },
+  'audit.running_pipeline': { id: 'Menjalankan Pipeline Audit Kebutuhan', en: 'Running Requirements Audit Pipeline' },
+  'audit.stage1_name': { id: 'Stage 1: Rule-based & Linting', en: 'Stage 1: Rule-based & Linting' },
+  'audit.stage2_name': { id: 'Stage 2: INVEST Model (spaCy + ML)', en: 'Stage 2: INVEST Model (spaCy + ML)' },
+  'audit.stage_done': { id: 'Selesai', en: 'Completed' },
+  'audit.stage_processing': { id: 'Memproses...', en: 'Processing...' },
+  'audit.not_found_title': { id: 'Audit tidak ditemukan', en: 'Audit not found' },
+  'audit.not_found_desc': {
+    id: 'Audit #{id} tidak ditemukan di server maupun di browser ini.',
+    en: 'Audit #{id} was not found on the server or in this browser.',
+  },
+  'audit.back_editor': { id: 'Kembali ke editor', en: 'Back to editor' },
+  'audit.findings_title': { id: 'Temuan Cacat', en: 'Defect Findings' },
+  'audit.findings_view_editor': { id: 'Lihat dalam editor', en: 'View in editor' },
+  'audit.no_defects': { id: 'Tidak ada cacat yang terdeteksi', en: 'No defects detected' },
+  'audit.clean_pass': { id: 'Draf ini lolos seluruh aturan audit ReqLint.', en: 'This draft passed all ReqLint audit rules.' },
+  'audit.col_location': { id: 'Lokasi', en: 'Location' },
+  'audit.col_category': { id: 'Kategori', en: 'Category' },
+  'audit.col_term': { id: 'Istilah Terdeteksi', en: 'Detected Term' },
+  'audit.col_recommendation': { id: 'Rekomendasi', en: 'Recommendation' },
+  'audit.sentence': { id: 'Kalimat', en: 'Sentence' },
+  'audit.summary_title': { id: 'Ringkasan Hasil Analisis', en: 'Analysis Summary' },
+  'audit.findings_count': { id: '{count} temuan', en: '{count} findings' },
+  'audit.analysis_done': { id: 'Analisis selesai', en: 'Analysis complete' },
+  'audit.standard_compliance': { id: 'Kepatuhan standar', en: 'Standard compliance' },
+  'audit.details_invest': { id: 'Lihat detail INVEST', en: 'View INVEST details' },
+  'audit.scorecard_title': { id: 'Quality Scorecard', en: 'Quality Scorecard' },
+  'audit.score_desc': {
+    id: 'Skor = 100 − bobot temuan (ambiguity 14, non-testable 16, tidak lengkap 18, weak directive 10, passive 12), diredam untuk teks panjang.',
+    en: 'Score = 100 − finding weights (ambiguity 14, non-testable 16, incomplete 18, weak directive 10, passive 12), scaled for long text.',
+  },
+  'audit.revision_title': { id: 'Rekomendasi Perbaikan', en: 'Improvement Recommendation' },
+  'audit.auto_badge': { id: '(Otomatis)', en: '(Automated)' },
+  'audit.revision_eyebrow': { id: 'Saran revisi', en: 'Revision suggestion' },
+  'audit.no_auto_revision': {
+    id: 'Tidak ada perubahan otomatis yang aman untuk draf ini. Perbaiki temuan pada tabel di atas secara manual.',
+    en: 'No automated changes are safe for this draft. Please fix findings in the table above manually.',
+  },
+  'audit.apply': { id: 'Terapkan Revisi', en: 'Apply' },
+  'audit.edit_manual': { id: 'Edit Manual', en: 'Manual Edit' },
+  'audit.acceptance_title': { id: 'Kriteria Penerimaan Terstandar', en: 'Standard Acceptance Criteria' },
+  'audit.criteria_eyebrow': { id: 'Gherkin BDD (Given-When-Then)', en: 'Gherkin BDD (Given-When-Then)' },
+  'audit.diff_title': { id: 'Perbandingan Sebelum & Sesudah', en: 'Before & After Comparison' },
+  'audit.diff_before': { id: 'Sebelum (Draf Asli)', en: 'Before (Original Draft)' },
+  'audit.diff_after': { id: 'Sesudah (Revisi)', en: 'After (Revision)' },
+  'audit.original_badge': { id: 'Asli', en: 'Original' },
+  'audit.revised_badge': { id: 'Rekomendasi', en: 'Recommendation' },
+  'audit.toast_copied': { id: 'Hasil audit disalin (Markdown).', en: 'Audit results copied (Markdown).' },
+  'audit.toast_apply_success': { id: 'Rekomendasi AI berhasil diterapkan ke draf!', en: 'AI recommendation successfully applied to draft!' },
 
   // ─── History Page ───
   'history.crumb': { id: 'Workspace / Riwayat', en: 'Workspace / History' },
@@ -183,10 +318,15 @@ const translations: Record<string, Record<UILocale, string>> = {
   'reset.success': { id: 'Kata sandi berhasil diperbarui. Silakan masuk.', en: 'Password updated successfully. Please sign in.' },
   'reset.invalid_token': { id: 'Token reset tidak valid atau sudah kedaluwarsa.', en: 'Reset token is invalid or expired.' },
 
-  // ─── General ───
+  // ─── General & Categories ───
   'general.language': { id: 'Bahasa', en: 'Language' },
   'general.indonesian': { id: 'Bahasa Indonesia', en: 'Indonesian' },
   'general.english': { id: 'English', en: 'English' },
+  'category.ambiguity': { id: 'Ambiguity', en: 'Ambiguity' },
+  'category.non_testable': { id: 'Tidak Bisa Diuji', en: 'Non-Testable' },
+  'category.incomplete': { id: 'Tidak Lengkap', en: 'Incomplete' },
+  'category.weak_directive': { id: 'Weak Directive', en: 'Weak Directive' },
+  'category.passive_voice': { id: 'Passive Voice', en: 'Passive Voice' },
 };
 
 /**
@@ -217,4 +357,3 @@ export function useT() {
     return text;
   };
 }
-
