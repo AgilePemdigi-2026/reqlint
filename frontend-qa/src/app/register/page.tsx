@@ -43,8 +43,8 @@ export default function RegisterPage() {
       return setErrors({ form: result.error });
     }
 
-    toast('Pendaftaran berhasil! Mengalihkan ke ruang kerja...');
-    router.replace('/editor');
+    toast('Pendaftaran berhasil, silakan masuk');
+    router.replace('/login');
   }
 
   const soon = (e: React.MouseEvent) => {

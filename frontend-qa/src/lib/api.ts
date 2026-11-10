@@ -236,6 +236,42 @@ export const apiCreateAudit = async (
   return response.data;
 };
 
+export interface BackendAuditHistoryItem {
+  id_audit: number;
+  id_draf: number;
+  tanggal_audit: string;
+  judul_klausul: string;
+  skor_kualitas: number;
+  status_revisi: string;
+  status_audit: string;
+}
+
+export interface BackendAuditHistoryResponse {
+  message: string;
+  items: BackendAuditHistoryItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total_items: number;
+    total_pages: number;
+  };
+  has_any_history: boolean;
+}
+
+export const apiGetAuditsHistory = async (params?: {
+  q?: string;
+  page?: number;
+  limit?: number;
+  min_score?: number;
+  max_score?: number;
+  status_revisi?: string;
+}): Promise<BackendEnvelope<BackendAuditHistoryResponse>> => {
+  const response = await apiClient.get<BackendEnvelope<BackendAuditHistoryResponse>>('/audits', {
+    params,
+  });
+  return response.data;
+};
+
 export const apiGetAuditStatus = async (
   id: number | string
 ): Promise<BackendEnvelope<BackendAuditStatus>> => {
@@ -289,6 +325,24 @@ export const apiDownloadExport = async (
     responseType: 'blob',
   });
   return { blob: response.data, filename: `audit-${id}.${format}` };
+};
+
+/* ---------------- Forgot / Reset Password API ---------------- */
+
+export const apiForgotPassword = async (payload: {
+  email: string;
+}): Promise<BackendEnvelope> => {
+  const response = await apiClient.post<BackendEnvelope>('/auth/forgot-password', payload);
+  return response.data;
+};
+
+export const apiResetPassword = async (payload: {
+  token: string;
+  password: string;
+  password_confirmation: string;
+}): Promise<BackendEnvelope> => {
+  const response = await apiClient.post<BackendEnvelope>('/auth/reset-password', payload);
+  return response.data;
 };
 
 export const auditRequirement = async (

@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.responses import success_response
-from app.schemas.auth import RegisterRequest, LoginRequest
+from app.schemas.auth import RegisterRequest, LoginRequest, ForgotPasswordRequest, ResetPasswordRequest
 from app.services.auth_service import AuthService
 from app.api.deps import get_current_user
 from app.db.models import User
@@ -38,4 +38,23 @@ async def me(current_user: User = Depends(get_current_user)):
             "email": current_user.alamat_email,
             "tanggal_registrasi": current_user.tanggal_registrasi.isoformat() if current_user.tanggal_registrasi else None
         }
+    )
+
+@router.post("/forgot-password", status_code=status.HTTP_200_OK, summary="Request password reset token")
+async def forgot_password(payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    await AuthService.forgot_password(db, payload)
+    # Selalu kembalikan sukses untuk mencegah user enumeration
+    return success_response(
+        message="Jika email terdaftar, tautan reset telah dikirim.",
+        data=None,
+        status_code=status.HTTP_200_OK
+    )
+
+@router.post("/reset-password", status_code=status.HTTP_200_OK, summary="Reset password with token")
+async def reset_password(payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
+    await AuthService.reset_password(db, payload)
+    return success_response(
+        message="Kata sandi berhasil diperbarui. Silakan masuk.",
+        data=None,
+        status_code=status.HTTP_200_OK
     )

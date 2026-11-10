@@ -1,25 +1,30 @@
 'use client';
 
-import { Bell, ChevronDown, Clock, LogOut, Moon, PenLine, Sun } from 'lucide-react';
+import { Bell, ChevronDown, Clock, LogOut, Moon, PenLine, Sun, HelpCircle, MessageSquare, Globe } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Lock } from 'lucide-react';
 import { initials, logout, useCurrentUser, verifySession } from '@/lib/auth';
+import { useT } from '@/lib/i18n';
+import { LanguageToggle } from './language-toggle';
 import { Logo } from './logo';
 import { Popover } from './popover';
 import { useTheme } from './providers';
 import { BackendHealthBadge } from './backend-badge';
 
 const TABS = [
-  { href: '/editor', label: 'Editor', icon: PenLine, match: (p: string) => p.startsWith('/editor') || p.startsWith('/audit') },
-  { href: '/history', label: 'History Audit', icon: Clock, match: (p: string) => p.startsWith('/history') },
+  { href: '/editor', labelKey: 'nav.editor', icon: PenLine, match: (p: string) => p.startsWith('/editor') || p.startsWith('/audit') },
+  { href: '/history', labelKey: 'nav.history', icon: Clock, match: (p: string) => p.startsWith('/history') },
+  { href: '/help', labelKey: 'nav.help' as const, icon: HelpCircle, match: (p: string) => p.startsWith('/help') },
+  { href: '/contact', labelKey: 'nav.contact' as const, icon: MessageSquare, match: (p: string) => p.startsWith('/contact') },
 ];
 
 function Navbar({ name, email }: { name: string; email: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, toggle } = useTheme();
+  const t = useT();
 
   return (
     <header className="sticky top-0 z-40 border-b border-black/[0.07] bg-[#f7f5f1]/90 backdrop-blur-md dark:border-white/10 dark:bg-[#141416]/90">
@@ -28,8 +33,11 @@ function Navbar({ name, email }: { name: string; email: string }) {
           <Logo />
           <span className="hidden h-7 w-px bg-line/10 sm:block" aria-hidden />
           <div className="flex items-center gap-1 rounded-full bg-black/[0.05] p-1 dark:bg-white/[0.07]">
-            {TABS.map(({ href, label, icon: Icon, match }) => {
+            {TABS.map(({ href, labelKey, icon: Icon, match }) => {
               const active = match(pathname);
+              const label = labelKey === 'nav.help' ? (t('help.title').startsWith('Panduan') ? 'Panduan' : 'Help')
+                : labelKey === 'nav.contact' ? (t('contact.title').startsWith('Hubungi') ? 'Kontak' : 'Contact')
+                : t(labelKey);
               return (
                 <Link
                   key={href}
@@ -51,8 +59,10 @@ function Navbar({ name, email }: { name: string; email: string }) {
           <BackendHealthBadge />
 
           <span className="hidden items-center gap-2 text-[12.5px] text-muted md:flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-faint" aria-hidden /> Personal workspace
+            <span className="h-1.5 w-1.5 rounded-full bg-faint" aria-hidden /> {t('nav.workspace')}
           </span>
+
+          <LanguageToggle />
 
           <Popover
             align="right"
@@ -70,8 +80,8 @@ function Navbar({ name, email }: { name: string; email: string }) {
           >
             {() => (
               <div className="w-[260px] px-3 py-2.5">
-                <p className="text-[13.5px] font-semibold">Notifikasi</p>
-                <p className="mt-1 text-[12.5px] text-muted">Selamat datang di ReqLint. Belum ada notifikasi lain.</p>
+                <p className="text-[13.5px] font-semibold">{t('nav.notifications')}</p>
+                <p className="mt-1 text-[12.5px] text-muted">{t('nav.notif_welcome')}</p>
               </div>
             )}
           </Popover>
@@ -82,7 +92,7 @@ function Navbar({ name, email }: { name: string; email: string }) {
               <button
                 type="button"
                 onClick={t}
-                aria-label="Menu akun"
+                aria-label={t('nav.account_menu')}
                 className="inline-flex items-center gap-1.5 rounded-full p-1 pr-2 transition hover:bg-line/[0.05]"
               >
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-line/[0.07] text-[12.5px] font-semibold">
@@ -107,7 +117,7 @@ function Navbar({ name, email }: { name: string; email: string }) {
                   }}
                 >
                   {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                  {theme === 'dark' ? 'Tema terang' : 'Tema gelap'}
+                  {theme === 'dark' ? t('nav.theme_light') : t('nav.theme_dark')}
                 </button>
                 <button
                   type="button"
@@ -118,7 +128,7 @@ function Navbar({ name, email }: { name: string; email: string }) {
                     router.replace('/login');
                   }}
                 >
-                  <LogOut size={16} /> Keluar
+                  <LogOut size={16} /> {t('nav.logout')}
                 </button>
               </>
             )}
@@ -133,6 +143,7 @@ function Navbar({ name, email }: { name: string; email: string }) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const user = useCurrentUser();
   const router = useRouter();
+  const t = useT();
 
   useEffect(() => {
     if (user === null) {
@@ -151,7 +162,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="flex-1 pb-6 pt-10">{children}</main>
         <footer className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-muted">
           <span className="inline-flex items-center gap-2">
-            <Lock size={14} aria-hidden /> Sesi autentikasi diamankan dengan token JWT FastAPI.
+            <Lock size={14} aria-hidden /> {t('nav.footer_jwt')}
           </span>
           <span>ReqLint v1.0 · Arsitektur Terintegrasi</span>
         </footer>

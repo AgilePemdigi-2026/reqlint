@@ -1,13 +1,14 @@
 'use client';
 
-import { ArrowRight, History, Search, Trash2, X } from 'lucide-react';
+import { ArrowRight, History, Search, Trash2, X, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/app-shell';
 import { useToast } from '@/components/providers';
 import { analyze } from '@/lib/analyzer';
 import type { Category, Grade } from '@/lib/analyzer';
-import { clearAudits, deleteAudit, useAudits } from '@/lib/audits';
+import { clearAudits, deleteAudit, syncAudits, useAudits, type Audit } from '@/lib/audits';
+import { apiGetAuditsHistory } from '@/lib/api';
 import { CATEGORY_LABEL, GRADE_BADGE, GRADE_LABEL, formatDate } from '@/lib/format';
 
 type DateFilter = 'all' | 'today' | '7d' | '30d';
@@ -38,6 +39,38 @@ export default function HistoryPage() {
   const [lang, setLang] = useState<LangFilter>('all');
   const [category, setCategory] = useState<Category | 'all'>('all');
   const [sort, setSort] = useState<SortKey>('newest');
+  const [syncing, setSyncing] = useState<boolean>(false);
+
+  // Mengambil dan menyinkronkan riwayat dari backend FastAPI secara otomatis
+  useEffect(() => {
+    let cancelled = false;
+    async function loadBackendHistory() {
+      try {
+        setSyncing(true);
+        const res = await apiGetAuditsHistory({ limit: 50 });
+        if (cancelled || !res?.data?.items) return;
+
+        const backendAudits: Audit[] = res.data.items.map((item) => ({
+          id: String(item.id_audit),
+          seq: item.id_audit,
+          createdAt: item.tanggal_audit || new Date().toISOString(),
+          title: item.judul_klausul || `Audit #${item.id_audit}`,
+          text: item.judul_klausul || 'Klausul User Story',
+          language: 'id',
+        }));
+        syncAudits(backendAudits);
+      } catch (err) {
+        console.warn('Gagal memuat riwayat audit dari backend, menggunakan riwayat lokal:', err);
+      } finally {
+        if (!cancelled) setSyncing(false);
+      }
+    }
+
+    loadBackendHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const activeFilters =
     (dateRange !== 'all' ? 1 : 0) + (grade !== 'all' ? 1 : 0) + (lang !== 'all' ? 1 : 0) + (category !== 'all' ? 1 : 0);
@@ -51,30 +84,47 @@ export default function HistoryPage() {
   };
 
   const rows = useMemo(
-    () => audits.map((a) => ({ audit: a, result: analyze(a.text, a.language) })),
+    () =>
+      audits.map((a) => {
+        const text = a?.text || a?.title || 'User Story';
+        const language = a?.language || 'id';
+        return {
+          audit: a,
+          result: analyze(text, language),
+        };
+      }),
     [audits],
   );
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const list = rows.filter(({ audit, result }) => {
-      if (q && !`${audit.id} ${audit.title} ${audit.text}`.toLowerCase().includes(q)) return false;
-      if (!inDateRange(audit.createdAt, dateRange)) return false;
+      const id = audit?.id || '';
+      const title = audit?.title || '';
+      const text = audit?.text || '';
+      const createdAt = audit?.createdAt || new Date().toISOString();
+      const language = audit?.language || 'id';
+
+      if (q && !`${id} ${title} ${text}`.toLowerCase().includes(q)) return false;
+      if (!inDateRange(createdAt, dateRange)) return false;
       if (grade !== 'all' && result.grade !== grade) return false;
-      if (lang !== 'all' && audit.language !== lang) return false;
+      if (lang !== 'all' && language !== lang) return false;
       if (category !== 'all' && !result.findings.some((f) => f.category === category)) return false;
       return true;
     });
+
     return [...list].sort((a, b) => {
+      const aDate = a.audit?.createdAt || '';
+      const bDate = b.audit?.createdAt || '';
       switch (sort) {
         case 'oldest':
-          return a.audit.createdAt.localeCompare(b.audit.createdAt);
+          return aDate.localeCompare(bDate);
         case 'score-desc':
           return b.result.score - a.result.score;
         case 'score-asc':
           return a.result.score - b.result.score;
         default:
-          return b.audit.createdAt.localeCompare(a.audit.createdAt);
+          return bDate.localeCompare(aDate);
       }
     });
   }, [rows, query, dateRange, grade, lang, category, sort]);
@@ -97,8 +147,8 @@ export default function HistoryPage() {
         title="History Audit"
         subtitle={
           audits.length > 0
-            ? `Menampilkan ${visible.length} dari ${audits.length} audit di browser ini.`
-            : 'Seluruh audit yang pernah Anda jalankan di browser ini.'
+            ? `Menampilkan ${visible.length} dari ${audits.length} audit di akun Anda.`
+            : 'Seluruh riwayat evaluasi User Story yang pernah Anda jalankan.'
         }
         right={
           <div className="flex items-center gap-2.5">
@@ -188,14 +238,14 @@ export default function HistoryPage() {
             <li key={audit.id} className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl px-4 py-4 transition hover:bg-line/[0.03]">
               <Link href={`/audit/${audit.id}`} className="min-w-0 flex-1 basis-[260px]">
                 <p className="flex items-center gap-2.5 text-[12px] text-muted">
-                  <span className="font-mono">{audit.id}</span>
+                  <span className="font-mono">{audit.id.startsWith('AUD-') ? audit.id : `AUD-${audit.id}`}</span>
                   <span aria-hidden>·</span>
                   {formatDate(audit.createdAt)}
                   <span aria-hidden>·</span>
-                  {audit.language === 'id' ? 'ID' : 'EN'}
+                  {audit.language === 'en' ? 'EN' : 'ID'}
                 </p>
-                <p className="mt-1 truncate text-[15px] font-semibold">{audit.title}</p>
-                <p className="mt-0.5 truncate text-[12.5px] text-muted">{audit.text.replace(/\s+/g, ' ')}</p>
+                <p className="mt-1 truncate text-[15px] font-semibold">{audit.title || 'Audit User Story'}</p>
+                <p className="mt-0.5 truncate text-[12.5px] text-muted">{(audit.text || audit.title || '').replace(/\s+/g, ' ')}</p>
               </Link>
 
               <div className="flex items-center gap-4">
