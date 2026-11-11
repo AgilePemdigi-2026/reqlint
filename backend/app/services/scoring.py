@@ -18,7 +18,7 @@ class ScoringService:
     def calculate_score(
         stories: List[Dict[str, Any]],
         findings: List[Dict[str, Any]],
-        invest_results: Optional[Dict[str, bool]] = None
+        invest_results: Optional[Dict[str, Optional[bool]]] = None
     ) -> Dict[str, Any]:
         """
         Calculates quality score (0..100) and ISO 29148 / INVEST breakdown.
@@ -69,7 +69,7 @@ class ScoringService:
     @staticmethod
     def compute_breakdown(
         findings: List[Dict[str, Any]],
-        invest_results: Optional[Dict[str, Any]] = None
+        invest_results: Optional[Dict[str, Optional[bool]]] = None
     ) -> Dict[str, Any]:
         # Count findings per characteristic
         ambiguity_count = sum(1 for f in findings if f.get("kategori_cacat") == "AMBIGUITY")
@@ -95,25 +95,30 @@ class ScoringService:
             "correct": correct
         }
 
-        # INVEST breakdown
-        if invest_results:
-            invest = {
-                "independent": 90 if invest_results.get("independent", True) else 40,
-                "negotiable": 80 if invest_results.get("negotiable", True) else 45,
-                "valuable": 85 if invest_results.get("valuable", True) else 35,
-                "estimable": max(20, 85 - (ambiguity_count * 15)),
-                "small": 85 if invest_results.get("small", True) else 30,
-                "testable": max(20, verifiable - 10)
-            }
-        else:
-            invest = {
-                "independent": 90,
-                "negotiable": 80,
-                "valuable": 75 if tidak_lengkap_count == 0 else 40,
-                "estimable": max(20, 80 - (ambiguity_count * 15)),
-                "small": 85,
-                "testable": max(20, verifiable - 10)
-            }
+        # P0/FUNC-12 & UI-48 & ML-07: INVEST breakdown is driven by the actual
+        # per-criterion evaluation result. Missing (None) data is represented as
+        # None ("not evaluated") — never as a passing value. The six INVEST
+        # criteria are preserved.
+        def _invest_value(flag: Any, passed_value: float, failed_value: float, derived_pass: Optional[float] = None) -> Optional[float]:
+            if flag is None:
+                return None
+            if flag is False or flag == 0:
+                return failed_value
+            return derived_pass if derived_pass is not None else passed_value
+
+        def _flag(key: str) -> Any:
+            if not invest_results:
+                return None
+            return invest_results.get(key)
+
+        invest = {
+            "independent": _invest_value(_flag("independent"), 90, 40),
+            "negotiable": _invest_value(_flag("negotiable"), 80, 45),
+            "valuable": _invest_value(_flag("valuable"), 85, 35),
+            "estimable": _invest_value(_flag("estimable"), 85, 20, derived_pass=max(20, 85 - (ambiguity_count * 15))),
+            "small": _invest_value(_flag("small"), 85, 30),
+            "testable": _invest_value(_flag("testable"), 85, 20, derived_pass=max(20, verifiable - 10)),
+        }
 
         return {
             "iso_29148": iso_29148,
@@ -122,6 +127,8 @@ class ScoringService:
 
     @staticmethod
     def default_breakdown(stage2_done: bool = False) -> Dict[str, Any]:
+        # P0/UI-48: with no evaluation data, INVEST criteria are "not evaluated"
+        # (None) — never fabricated passing values.
         return {
             "iso_29148": {
                 "unambiguous": 100, "complete": 100, "consistent": 100, "verifiable": 100,
@@ -129,7 +136,7 @@ class ScoringService:
                 "ranked": None, "correct": 100
             },
             "invest": {
-                "independent": 90, "negotiable": 85, "valuable": 85,
-                "estimable": 85, "small": 90, "testable": 90
+                "independent": None, "negotiable": None, "valuable": None,
+                "estimable": None, "small": None, "testable": None
             }
         }

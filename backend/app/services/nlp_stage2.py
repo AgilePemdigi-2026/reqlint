@@ -17,10 +17,9 @@ class AcceptanceCriteriaModel(BaseModel):
 class Stage2OutputModel(BaseModel):
     ai_rewrite: str
     acceptance_criteria: List[AcceptanceCriteriaModel]
-    invest: Dict[str, bool] = Field(default_factory=lambda: {
-        "independent": True, "negotiable": True, "valuable": True,
-        "estimable": True, "small": True, "testable": True
-    })
+    # P0/UI-48 & ML-07: no default. When the model omits `invest` the result is
+    # UNKNOWN (None) — it must never silently default to "all criteria pass".
+    invest: Optional[Dict[str, bool]] = None
     iso: Dict[str, Any] = Field(default_factory=dict)
     extra_findings: List[Dict[str, Any]] = Field(default_factory=list)
 
@@ -152,14 +151,10 @@ class NLPStage2Service:
         return {
             "ai_rewrite": rewrite,
             "acceptance_criteria": ac,
-            "invest": {
-                "independent": True,
-                "negotiable": True,
-                "valuable": True,
-                "estimable": True,
-                "small": True,
-                "testable": True
-            },
+            # P0/constraint 5: the mock provider does NOT evaluate INVEST —
+            # fabricating all-pass flags made the main pipeline's INVEST
+            # cosmetic. Missing data is represented as None (unknown).
+            "invest": None,
             "iso": {},
             "extra_findings": []
         }

@@ -95,7 +95,9 @@ class AuditService:
             audit.acceptance_criteria = stage2_result.get("acceptance_criteria")
 
             # Recompute final score with INVEST results
-            invest_flags = stage2_result.get("invest", {})
+            # P0/UI-48: absent INVEST data stays None (unknown) — scoring must
+            # never treat missing data as "all criteria pass".
+            invest_flags = stage2_result.get("invest")
             final_score_calc = ScoringService.calculate_score(stories, findings, invest_results=invest_flags)
             audit.skor_kualitas = final_score_calc["skor_kualitas"]
             audit.breakdown = final_score_calc["breakdown"]
