@@ -32,7 +32,8 @@ Browser ──▶ Coolify proxy ──▶ frontend (Next.js, internal :3000)
 
 ## Coolify configuration
 
-1. **New Resource → Docker Compose** build pack, source `farhanAkbar91/reqlint`,
+1. **New Resource → Docker Compose** build pack, source `AgilePemdigi-2026/reqlint`
+   (canonical; the old `farhanAkbar91/reqlint` URL redirects here),
    branch `deploy/coolify-preview`, **Docker Compose file**:
    `docker-compose.coolify.yml`.
 2. **Environment Variables** (UI):
