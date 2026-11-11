@@ -5,9 +5,8 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/app-shell';
 import { useToast } from '@/components/providers';
-import { analyze } from '@/lib/analyzer';
-import type { AnalysisResult, Category, Grade } from '@/lib/analyzer';
-import { gradeFor } from '@/lib/analyzer/analyze';
+import type { Category, Grade } from '@/lib/analyzer';
+import { buildHistoryRows, rowGrade, rowScore, type HistoryRow } from '@/lib/history';
 import { clearAudits, deleteAudit, syncAudits, useAudits, type Audit } from '@/lib/audits';
 import { apiGetAuditsHistory } from '@/lib/api';
 import { CATEGORY_LABEL, GRADE_BADGE, GRADE_LABEL, formatDate } from '@/lib/format';
@@ -87,41 +86,15 @@ export default function HistoryPage() {
     setCategory('all');
   };
 
-  // P0/FUNC-06 & UI-46: item backend menampilkan skor & status TERSIMPAN dari
-  // backend — tidak dihitung ulang oleh mesin lokal. Mesin lokal hanya untuk
-  // audit yang dibuat offline di browser ini.
-  type HistoryRow = {
-    audit: Audit;
-    backend: { score: number; grade: Grade; status: string | null } | null;
-    result: AnalysisResult | null;
-  };
-
-  const rowScore = (row: HistoryRow): number => (row.backend ? row.backend.score : row.result!.score);
-  const rowGrade = (row: HistoryRow): Grade => (row.backend ? row.backend.grade : row.result!.grade);
-
-  const rows = useMemo<HistoryRow[]>(
-    () =>
-      audits.map((a) => {
-        if (a.backendScore != null) {
-          const score = Math.round(a.backendScore);
-          return {
-            audit: a,
-            backend: { score, grade: gradeFor(score, true), status: a.backendStatus ?? null },
-            result: null,
-          };
-        }
-        return {
-          audit: a,
-          backend: null,
-          result: analyze(a.text || a.title || 'User Story', a.language || 'id'),
-        };
-      }),
-    [audits],
-  );
+  // P0/FUNC-06 & UI-46 + P0.1/R3-1: item backend menampilkan skor & status
+  // TERSIMPAN dari backend; PROCESSING/FAILED tampil sebagai status tanpa
+  // skor placeholder. Mesin lokal hanya untuk audit offline di browser ini.
+  const rows = useMemo<HistoryRow[]>(() => buildHistoryRows(audits), [audits]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = rows.filter(({ audit, backend, result }) => {
+    const list = rows.filter((row) => {
+      const { audit, result } = row;
       const id = audit?.id || '';
       const title = audit?.title || '';
       const text = audit?.text || '';
@@ -130,7 +103,9 @@ export default function HistoryPage() {
 
       if (q && !`${id} ${title} ${text}`.toLowerCase().includes(q)) return false;
       if (!inDateRange(createdAt, dateRange)) return false;
-      if (grade !== 'all' && rowGrade({ audit, backend, result }) !== grade) return false;
+      // P0.1/R3-1: baris pending (PROCESSING/FAILED) tidak punya grade — tidak
+      // ikut filter grade.
+      if (grade !== 'all' && rowGrade(row) !== grade) return false;
       if (lang !== 'all' && language !== lang) return false;
       // Filter kategori hanya bermakna untuk audit lokal (temuan detail tidak
       // tersedia pada payload riwayat backend).
@@ -260,7 +235,8 @@ export default function HistoryPage() {
       ) : (
         <ul className="card divide-y divide-line/[0.07] overflow-hidden p-2">
           {visible.map((row) => {
-            const { audit, backend, result } = row;
+            const { audit, result } = row;
+            const grade = rowGrade(row);
             return (
             <li key={audit.id} className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl px-4 py-4 transition hover:bg-line/[0.03]">
               <Link href={`/audit/${audit.id}`} className="min-w-0 flex-1 basis-[260px]">
@@ -277,13 +253,26 @@ export default function HistoryPage() {
 
               <div className="flex items-center gap-4">
                 <span className="text-[12.5px] text-muted">
-                  {backend
-                    ? backend.status || 'Audit backend'
-                    : `${result!.findings.length} temuan`}
+                  {row.pendingStatus
+                    ? row.pendingStatus === 'PROCESSING'
+                      ? 'Analisis sedang berjalan…'
+                      : row.pendingStatus === 'FAILED'
+                        ? 'Analisis gagal — skor tidak tersedia'
+                        : row.pendingStatus
+                    : result
+                      ? `${result.findings.length} temuan`
+                      : 'Skor tersimpan dari backend'}
                 </span>
-                <span className={`pill ${GRADE_BADGE[rowGrade(row)]}`}>
-                  {rowScore(row)} · {GRADE_LABEL[rowGrade(row)]}
-                </span>
+                {row.pendingStatus ? (
+                  // P0.1/R3-1: status, bukan skor placeholder 0.0.
+                  <span className="pill bg-line/[0.06] text-muted">
+                    {row.pendingStatus === 'FAILED' ? 'Gagal' : 'Memproses'}
+                  </span>
+                ) : (
+                  <span className={`pill ${GRADE_BADGE[grade as Grade]}`}>
+                    {rowScore(row)} · {GRADE_LABEL[grade as Grade]}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-1">
