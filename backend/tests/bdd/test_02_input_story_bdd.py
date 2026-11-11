@@ -66,11 +66,19 @@ def given_heuristic_text(bdd_context, text):
 
 @when(parsers.parse('pengguna meminta audit heuristik langsung dengan bahasa "{lang}"'))
 def send_heuristic_audit(bdd_context, client: AsyncClient, async_run, lang):
+    # P0/SEC-02: endpoint legacy /requirements/audit kini mewajibkan autentikasi.
+    pwd = "SecretP@ss123"
+    email = "heuristic_bdd@example.com"
+    async_run(client.post("/api/v1/auth/register", json={
+        "name": "Heuristic BDD", "email": email, "password": pwd, "password_confirmation": pwd
+    }))
+    login = async_run(client.post("/api/v1/auth/login", json={"email": email, "password": pwd}))
+    headers = {"Authorization": f"Bearer {login.json()['data']['access_token']}"}
     payload = {
         "requirement_text": bdd_context["heuristic_text"],
         "override_language": lang
     }
-    resp = async_run(client.post("/api/v1/requirements/audit", json=payload))
+    resp = async_run(client.post("/api/v1/requirements/audit", json=payload, headers=headers))
     bdd_context["last_response"] = resp
     bdd_context["last_json"] = resp.json()
 
