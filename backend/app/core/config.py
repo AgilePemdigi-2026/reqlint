@@ -1,4 +1,5 @@
 import os
+import secrets
 from typing import List, Union
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -8,6 +9,10 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
 
+    # Runtime environment: 'dev' (default) or anything else ('production'/'staging').
+    # P0/SEC-01: when ENV != 'dev', missing security configuration fails fast.
+    ENV: str = os.getenv("ENV", "dev")
+
     # Database
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./reqlint.db")
     
@@ -16,7 +21,10 @@ class Settings(BaseSettings):
     AUDIT_EXECUTION_MODE: str = os.getenv("AUDIT_EXECUTION_MODE", "inline")  # inline | celery
 
     # JWT Authentication
-    JWT_SECRET: str = os.getenv("JWT_SECRET", "super-secret-key-change-in-production-reqlint-hs256")
+    # P0/SEC-01: no insecure default. In 'dev' a missing secret is replaced with an
+    # ephemeral random per-process value (see validate_security_settings below);
+    # in any other ENV a missing JWT_SECRET aborts startup.
+    JWT_SECRET: str = os.getenv("JWT_SECRET", "")
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
     JWT_EXPIRE_HOURS: int = int(os.getenv("JWT_EXPIRE_HOURS", "24"))
     BCRYPT_ROUNDS: int = int(os.getenv("BCRYPT_ROUNDS", "12"))
@@ -54,3 +62,26 @@ class Settings(BaseSettings):
     )
 
 settings = Settings()
+
+
+def validate_security_settings(s: Settings) -> None:
+    """
+    P0/SEC-01 & DOC-04: fail fast when required security configuration is missing.
+
+    - ENV == 'dev': a missing JWT_SECRET is replaced with an ephemeral random
+      per-process value, so tokens are never signed with a publicly-known key.
+    - ENV != 'dev' (production/staging): a missing JWT_SECRET aborts startup
+      instead of silently falling back to an insecure default.
+    """
+    if s.JWT_SECRET:
+        return
+    if s.ENV == "dev":
+        s.JWT_SECRET = secrets.token_hex(32)
+    else:
+        raise RuntimeError(
+            "JWT_SECRET is required when ENV is not 'dev'. "
+            'Set a long random value, e.g. python -c "import secrets; print(secrets.token_hex(32))".'
+        )
+
+
+validate_security_settings(settings)

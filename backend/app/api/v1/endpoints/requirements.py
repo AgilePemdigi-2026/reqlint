@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Any, List
 
+from app.api.deps import get_current_user
+from app.db.models import User
 from app.schemas.requirement_schema import AuditRequest, AuditResponse
 from app.services.nlp_stage1 import NLPStage1Service
 from app.services.scoring import ScoringService
@@ -16,10 +18,13 @@ CATEGORY_MAP = {
 }
 
 @router.post("/audit", response_model=AuditResponse)
-def audit_requirement(payload: AuditRequest):
+def audit_requirement(payload: AuditRequest, current_user: User = Depends(get_current_user)):
     """
     Analyzes an Agile User Story text for INVEST criteria compliance, completeness, and ambiguity.
     Supports both Indonesian and English text with hybrid Stage 1 NLP and INVEST ML models.
+
+    P0/SEC-02: this legacy endpoint previously allowed anonymous access with a
+    CPU-heavy pipeline. Authentication is now REQUIRED (breaking change).
     """
     raw_text = (payload.requirement_text or "").strip()
     if not raw_text:
