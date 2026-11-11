@@ -1,0 +1,85 @@
+# ReqLint — single-domain Coolify preview stack (branch deploy/coolify-preview)
+#
+# One Coolify resource, one public domain. The Next.js frontend is the only
+# service exposed to Coolify's proxy; it reverse-proxies /api/* to the backend
+# over Docker's internal network (see frontend-qa/next.config.js, API_PROXY_TARGET).
+# The backend is never published publicly (internal `expose` only).
+#
+# No PostgreSQL, no Redis: the backend runs AUDIT_EXECUTION_MODE=inline and
+# stores data in SQLite on a named volume. The legacy root docker-compose.yml
+# (PostgreSQL/Redis) is left untouched for other workflows.
+#
+# IMPORTANT: this compose file must be used with the repository root as the
+# working directory (build contexts are relative to it).
+#
+# Coolify setup:
+#   - Build Pack: Docker Compose
+#   - Docker Compose Location: docker-compose.coolify.yml
+#   - Required env var in Coolify UI: JWT_SECRET (long random string)
+#   - Optional env vars in Coolify UI: CORS_ORIGINS, SLM_PROVIDER, SLM_BASE_URL,
+#     SLM_MODEL, SLM_TIMEOUT_SECONDS, GROQ_API_KEY, AUDIT_EXECUTION_MODE
+#   - Assign a public domain to the `frontend` service ONLY (port 3000);
+#     leave `backend` without a domain so it stays internal.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      # SQLite on a persistent named volume; path is relative to WORKDIR
+      # /app/backend inside the image (the ./data dir is pre-created there).
+      DATABASE_URL: sqlite+aiosqlite:///./data/reqlint.db
+      # Required: fail the deploy loudly instead of running with the default secret.
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in Coolify (long random string)}
+      # Auth/session still works with the default (empty) value because the
+      # frontend calls the API same-origin through the Next.js proxy.
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      # Stage-2 execution mode: inline = FastAPI BackgroundTasks (no Redis/Celery).
+      AUDIT_EXECUTION_MODE: ${AUDIT_EXECUTION_MODE:-inline}
+      # Stage-2 SLM (optional; default mock = built-in offline provider)
+      SLM_PROVIDER: ${SLM_PROVIDER:-mock}
+      SLM_BASE_URL: ${SLM_BASE_URL:-}
+      SLM_MODEL: ${SLM_MODEL:-}
+      SLM_TIMEOUT_SECONDS: ${SLM_TIMEOUT_SECONDS:-4}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+    volumes:
+      - reqlint_data:/app/backend/data
+    expose:
+      - "8000"
+    # Container healthcheck lives in backend/Dockerfile (Python urllib against
+    # /api/v1/health, start-period 90s to cover spaCy model loading).
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend-qa/Dockerfile
+      args:
+        # Same-origin relative base: the browser calls <public-domain>/api/v1/*,
+        # which Next.js proxies to the backend below. NEXT_PUBLIC_* is a
+        # build-time variable; it MUST NOT be an absolute internal URL here
+        # (browsers cannot resolve Docker service names).
+        NEXT_PUBLIC_API_URL: /api/v1
+        # Build-time proxy target (rewrites are baked at build time). Must match
+        # the backend service name above.
+        API_PROXY_TARGET: http://backend:8000
+    expose:
+      - "3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    # Node 18 ships a global fetch; no extra utilities are installed in the image.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  # Persists SQLite (user accounts, drafts, audits) across container recreation.
+  # Upload cache (backend/storage/cache) is intentionally NOT persisted: files
+  # are deleted right after parsing, and exports are generated in memory.
+  reqlint_data:

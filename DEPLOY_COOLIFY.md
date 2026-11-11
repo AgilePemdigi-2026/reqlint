@@ -7,6 +7,11 @@ Deployment model: **two separate Coolify applications** (backend + frontend).
 No PostgreSQL and no Redis are required for the preview — the backend defaults
 to a local SQLite file and `AUDIT_EXECUTION_MODE=inline`.
 
+> Alternative single-domain setup (one Coolify resource, frontend proxies
+> `/api/*` to the backend internally): see
+> [DEPLOY_COOLIFY_COMPOSE.md](DEPLOY_COOLIFY_COMPOSE.md) which uses
+> `docker-compose.coolify.yml`.
+
 ### Changes included on the `deploy/coolify-preview` branch
 
 | File | Change | Why |

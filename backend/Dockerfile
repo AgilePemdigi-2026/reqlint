@@ -6,7 +6,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y gcc g++ git && rm -rf /var/lib/apt/lists/*
+# curl is required by Coolify's container health check (curl -f http://localhost:8000/api/v1/health)
+RUN apt-get update && apt-get install -y gcc g++ git curl && rm -rf /var/lib/apt/lists/*
 
 # Copy backend & ai-engine dependencies
 COPY backend/requirements.txt /app/requirements.txt
