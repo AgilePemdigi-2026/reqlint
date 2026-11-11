@@ -213,6 +213,9 @@ export interface BackendAuditDetail {
   };
   temuan: BackendAuditFinding[];
   rekomendasi_ai: BackendAIRecommendation | null;
+  /** P0.1/R3-2: 'mock' = saran contoh bawaan; 'provider' = hasil model eksternal;
+   * null = tahap AI tidak menghasilkan saran (belum jalan / gagal). */
+  ai_suggestion_source: 'mock' | 'provider' | null;
   diff: {
     original: { teks: string; skor: number | null };
     revised: { teks: string; skor: number | null };

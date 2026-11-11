@@ -1,5 +1,6 @@
 """P0 Task 3 regression tests: result integrity (FUNC-12, UI-48, ML-07, ML-20)."""
 import pytest
+from httpx import AsyncClient
 
 from app.services.nlp_stage2 import NLPStage2Service, Stage2OutputModel
 from app.services.scoring import ScoringService
@@ -76,3 +77,75 @@ def test_default_breakdown_invest_is_not_fabricated_passing():
     """P0/ML-07: the empty-draft default must not present INVEST as passing."""
     b = ScoringService.default_breakdown(stage2_done=False)
     assert all(v is None for v in b["invest"].values())
+
+
+# ── P0.1/R3-2: ai_suggestion_source pada detail audit ───────────────────
+
+@pytest.mark.asyncio
+async def test_audit_detail_exposes_ai_suggestion_source(client: AsyncClient):
+    """P0.1/R3-2: detail audit harus membedakan saran mock vs provider nyata.
+    Default deployment memakai SLM_PROVIDER=mock → saran = contoh demo."""
+    pwd = "SecretP@ss123"
+    email = "ai_source@example.com"
+    await client.post("/api/v1/auth/register", json={
+        "name": "AI Source", "email": email, "password": pwd, "password_confirmation": pwd
+    })
+    login = await client.post("/api/v1/auth/login", json={"email": email, "password": pwd})
+    headers = {"Authorization": f"Bearer {login.json()['data']['access_token']}"}
+
+    create = await client.post(
+        "/api/v1/audits",
+        json={"konten": "As a user, I want the system to be fast so that I can work easily.",
+              "judul_klausul": "AI source check"},
+        headers=headers,
+    )
+    assert create.status_code == 202
+    id_audit = create.json()["data"]["id_audit"]
+
+    from app.services.audit_service import AuditService
+    await AuditService.run_pipeline(id_audit)
+
+    detail = await client.get(f"/api/v1/audits/{id_audit}", headers=headers)
+    assert detail.status_code == 200
+    data = detail.json()["data"]
+    assert data["stage2_status"] == "DONE"
+    assert data["rekomendasi_ai"] is not None
+    # Default SLM_PROVIDER=mock → saran ditandai sebagai contoh demo.
+    assert data["ai_suggestion_source"] == "mock"
+
+
+@pytest.mark.asyncio
+async def test_failed_stage2_has_no_ai_suggestion_source(client: AsyncClient):
+    """P0.1/R3-2: kegagalan tahap AI tidak menghasilkan sumber saran."""
+    pwd = "SecretP@ss123"
+    email = "ai_source_failed@example.com"
+    await client.post("/api/v1/auth/register", json={
+        "name": "AI Src Fail", "email": email, "password": pwd, "password_confirmation": pwd
+    })
+    login = await client.post("/api/v1/auth/login", json={"email": email, "password": pwd})
+    headers = {"Authorization": f"Bearer {login.json()['data']['access_token']}"}
+
+    create = await client.post(
+        "/api/v1/audits",
+        json={"konten": "Sebagai user, saya ingin data aman agar tenang.", "judul_klausul": "AI fail check"},
+        headers=headers,
+    )
+    id_audit = create.json()["data"]["id_audit"]
+
+    # Paksa Stage-2 gagal: provider tidak tersedia (timeout/conn error).
+    from unittest.mock import patch
+    import httpx
+    with patch("app.services.nlp_stage2.settings.SLM_PROVIDER", "ollama"), patch(
+        "httpx.AsyncClient.post",
+        side_effect=httpx.ConnectError("provider unreachable"),
+    ):
+        from app.services.audit_service import AuditService
+        await AuditService.run_pipeline(id_audit)
+
+    detail = await client.get(f"/api/v1/audits/{id_audit}", headers=headers)
+    assert detail.status_code == 200
+    data = detail.json()["data"]
+    assert data["stage2_status"] == "FAILED"
+    assert data["ai_suggestion_source"] is None
+    # Detail error internal TIDAK ikut ke respons publik.
+    assert "error_message" not in data

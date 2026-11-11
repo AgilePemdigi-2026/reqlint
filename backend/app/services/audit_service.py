@@ -276,6 +276,14 @@ class AuditService:
                 "acceptance_criteria": audit.acceptance_criteria or []
             }
 
+        # P0.1/R3-2: eksplisit bedakan saran AI nyata vs contoh mock.
+        # Catatan: provider dibaca dari konfigurasi AKTIF (aproksimasi untuk
+        # audit historis — provider saat audit dijalankan tidak direkam di DB;
+        # pada deployment tunggal nilainya konsisten).
+        ai_suggestion_source = None
+        if rekomendasi_ai is not None:
+            ai_suggestion_source = "mock" if settings.SLM_PROVIDER == "mock" else "provider"
+
         # Notifications
         notifikasi = None
         if audit.status_audit == "PARTIAL":
@@ -326,6 +334,7 @@ class AuditService:
             "ringkasan": ringkasan,
             "temuan": temuan_list,
             "rekomendasi_ai": rekomendasi_ai,
+            "ai_suggestion_source": ai_suggestion_source,
             "diff": diff,
             "notifikasi": notifikasi
         }

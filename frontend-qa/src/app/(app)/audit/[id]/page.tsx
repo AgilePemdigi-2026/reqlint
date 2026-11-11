@@ -33,6 +33,7 @@ import {
   type Revision,
 } from '@/lib/analyzer';
 import { createAudit, setDraft, touchAudit, useAudit } from '@/lib/audits';
+import { resolveAiSuggestionStatus } from '@/lib/ai-status';
 import {
   apiApplyAudit,
   apiDownloadExport,
@@ -316,6 +317,9 @@ export default function AuditPage() {
     toast(`${filename} berhasil diunduh.`);
   };
 
+  // P0.1/R3-2: status transparan saran tahap AI (mock vs provider vs gagal).
+  const aiStatus = backendDetail ? resolveAiSuggestionStatus(backendDetail) : null;
+
   return (
     <>
       <PageHeader
@@ -388,6 +392,16 @@ export default function AuditPage() {
         </div>
 
         <FindingsTable findings={result.findings} onOpenEditor={() => openInEditor(currentText)} />
+
+        {aiStatus && (
+          <p
+            className={`text-[12.5px] leading-relaxed ${
+              aiStatus.kind === 'unavailable' ? 'text-amber-700 dark:text-amber-400' : 'text-muted'
+            }`}
+          >
+            <strong>AI:</strong> {aiStatus.explanation}
+          </p>
+        )}
 
         <p className="text-[12.5px] leading-relaxed text-muted">
           Catatan privasi: draf dan dokumen diproses di server ReqLint dan tersimpan pada riwayat akun Anda. Saran
