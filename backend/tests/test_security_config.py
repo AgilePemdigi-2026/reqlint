@@ -13,6 +13,15 @@ def test_production_without_jwt_secret_fails_fast():
     assert "JWT_SECRET" in str(exc.value)
 
 
+def test_production_rejects_published_example_secret():
+    """A secret copied verbatim from .env.example is publicly known and must
+    be rejected in non-dev environments (P0/SEC-01 hardening)."""
+    s = Settings(ENV="production", JWT_SECRET="ganti-ini-dengan-secret-acak-panjang")
+    with pytest.raises(RuntimeError) as exc:
+        validate_security_settings(s)
+    assert "example value" in str(exc.value)
+
+
 def test_production_with_jwt_secret_passes():
     s = Settings(ENV="production", JWT_SECRET="a" * 64)
     validate_security_settings(s)

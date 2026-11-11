@@ -63,6 +63,11 @@ class Settings(BaseSettings):
 
 settings = Settings()
 
+# P0/SEC-01: nilai contoh yang diketahui publik tidak boleh dipakai di non-dev.
+_INSECURE_KNOWN_SECRETS = {
+    "ganti-ini-dengan-secret-acak-panjang",  # placeholder di backend/.env.example
+}
+
 
 def validate_security_settings(s: Settings) -> None:
     """
@@ -70,9 +75,15 @@ def validate_security_settings(s: Settings) -> None:
 
     - ENV == 'dev': a missing JWT_SECRET is replaced with an ephemeral random
       per-process value, so tokens are never signed with a publicly-known key.
-    - ENV != 'dev' (production/staging): a missing JWT_SECRET aborts startup
-      instead of silently falling back to an insecure default.
+    - ENV != 'dev' (production/staging): a missing JWT_SECRET — or one equal to
+      a published example value — aborts startup instead of silently falling
+      back to an insecure default.
     """
+    if s.ENV != "dev" and s.JWT_SECRET in _INSECURE_KNOWN_SECRETS:
+        raise RuntimeError(
+            "JWT_SECRET still uses a published example value. "
+            'Set a long random value, e.g. python -c "import secrets; print(secrets.token_hex(32))".'
+        )
     if s.JWT_SECRET:
         return
     if s.ENV == "dev":
