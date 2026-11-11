@@ -92,4 +92,60 @@ describe('adaptBackendAuditToAnalysisResult — P0 result integrity', () => {
     expect(byKey.T.passed).toBe(false);
     expect(result.compliance.invest).toBe(50); // 3 lulus dari 6 ter-evaluasi
   });
+
+  // ── P0.1/R2-1: perbandingan revisi dengan evaluator yang sama ──────────
+
+  const ORIGINAL = 'Sebagai admin, saya ingin dapat menghapus data dengan mudah agar cepat.';
+  const WORSE = 'Harus disimpan oleh sistem dengan cepat.';
+
+  it('P0.1/R2-1: before & after both come from the SAME local evaluator', () => {
+    const detail = makeDetail({
+      diff: { original: { teks: ORIGINAL }, revised: { teks: WORSE } },
+    });
+    const { revision } = adaptBackendAuditToAnalysisResult(detail);
+    expect(revision.originalLocal.score).toBe(analyze(ORIGINAL, 'id').score);
+    expect(revision.result.score).toBe(analyze(WORSE, 'id').score);
+    expect(revision.originalLocal.grade).toBe(analyze(ORIGINAL, 'id').grade);
+    expect(revision.result.grade).toBe(analyze(WORSE, 'id').grade);
+  });
+
+  it('P0.1/R2-1: a degraded revision is NOT artificially improved', () => {
+    const detail = makeDetail({
+      diff: { original: { teks: ORIGINAL }, revised: { teks: WORSE } },
+    });
+    const { revision } = adaptBackendAuditToAnalysisResult(detail);
+    expect(revision.result.score).toBeLessThan(90); // tanpa patokan bawah lama
+    expect(revision.result.findings.length).toBeGreaterThan(0); // temuan nyata, bukan []
+  });
+
+  it('P0.1/R2-1: unchanged text produces identical local before/after scores', () => {
+    const detail = makeDetail(); // original == revised
+    const { revision } = adaptBackendAuditToAnalysisResult(detail);
+    expect(revision.changed).toBe(false);
+    expect(revision.originalLocal.score).toBe(analyze(revision.text, 'id').score);
+  });
+
+  it('P0.1/R2-1: the official backend score remains separate and unchanged', () => {
+    const detail = makeDetail({
+      diff: { original: { teks: ORIGINAL }, revised: { teks: WORSE } },
+    });
+    const { result, revision, originalLocal } = adaptBackendAuditToAnalysisResult(detail);
+    expect(result.score).toBe(80); // skor resmi backend (skor_kualitas)
+    expect(revision.originalLocal.score).toBe(analyze(ORIGINAL, 'id').score);
+    expect(revision.result.score).toBe(analyze(WORSE, 'id').score);
+    // Nilai lokal tidak menimpa skor resmi pada hasil utama.
+    expect(result.score).toBe(80);
+  });
+
+  it('P0.1/R2-2: revised text is evaluated in its own detected language', () => {
+    const detail = makeDetail({
+      diff: {
+        original: { teks: ORIGINAL },
+        revised: { teks: 'As an admin, I want data deletion to complete in under two seconds so that audits stay fast.' },
+      },
+    });
+    const { revision } = adaptBackendAuditToAnalysisResult(detail);
+    expect(revision.originalLocal.language).toBe('id');
+    expect(revision.result.language).toBe('en');
+  });
 });

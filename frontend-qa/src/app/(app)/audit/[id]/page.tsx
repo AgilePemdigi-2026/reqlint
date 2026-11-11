@@ -409,8 +409,9 @@ export default function AuditPage() {
           <DiffViewer
             before={currentText}
             after={revision.text}
-            beforeScore={result.score}
+            beforeScore={revision.originalLocal.score}
             afterScore={revision.result.score}
+            localEstimate
             onApply={applyRevision}
             canApply={!applyingRevision}
           />

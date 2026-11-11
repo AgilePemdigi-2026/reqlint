@@ -74,4 +74,9 @@ export interface Revision {
   /** True bila ada perubahan dibanding teks asli. */
   changed: boolean;
   result: AnalysisResult;
+  /** P0.1/R2-1: evaluasi lokal atas TEKS ASLI dengan analyzer yang sama —
+   * dipakai DiffViewer agar before/after memakai satu metode konsisten.
+   * Skor audit resmi dari backend tetap ada di `AnalysisResult` hasil adaptasi
+   * backend dan tidak pernah ditimpa nilai ini. */
+  originalLocal: AnalysisResult;
 }

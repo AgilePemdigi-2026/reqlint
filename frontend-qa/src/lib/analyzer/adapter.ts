@@ -18,15 +18,18 @@ export function adaptBackendAuditToAnalysisResult(
 ): {
   result: AnalysisResult;
   revision: Revision;
+  originalLocal: AnalysisResult;
   criteria: AcceptanceCriteria | null;
   rawDetail: BackendAuditDetail;
 } {
   const originalText = detail.diff?.original?.teks || '';
   const revisedText = detail.diff?.revised?.teks || detail.rekomendasi_ai?.ai_rewrite || originalText;
 
-  // Deteksi bahasa sederhana berdasarkan kata kunci
-  const isEn = /\b(as a|i want|so that|shall|should)\b/i.test(originalText);
-  const lang: Language = isEn ? 'en' : fallbackLang;
+  // P0.1/R2-2: bahasa dideteksi per teks — teks revisi bisa berbeda bahasa
+  // dari teks asli, dan masing-masing dievaluasi dengan bahasanya sendiri.
+  const langFor = (t: string): Language =>
+    /\b(as a|i want|so that|shall|should)\b/i.test(t) ? 'en' : fallbackLang;
+  const lang = langFor(originalText);
 
   const clauses = splitClauses(originalText);
   const wordCount = clauses.reduce((n, c) => n + countWords(c.text), 0);
@@ -130,16 +133,18 @@ export function adaptBackendAuditToAnalysisResult(
 
   const changed = Boolean(revisedText && revisedText.trim() !== originalText.trim());
 
-  // P0/FUNC-05 & UI-47: hasil "setelah revisi" kini merupakan evaluasi NYATA
-  // dari analyzer lokal yang sama (deterministik) pada teks revisi — tidak ada
-  // lagi skor minimal 90, compliance hardcode, atau findings kosong buatan.
-  // Bila teks tidak berubah, hasilnya identik dengan hasil audit.
-  const revisionResult: AnalysisResult = changed ? analyze(revisedText, lang) : result;
+  // P0.1/R2-1: DiffViewer membandingkan dua sisi dengan EVALUATOR YANG SAMA —
+  // analyzer lokal pada teks asli (`originalLocal`) vs teks revisi
+  // (`revisionResult` saat changed). Skor audit resmi dari backend tetap ada
+  // di `result` dan tidak pernah ditimpa nilai-nilai lokal ini.
+  const originalLocal = analyze(originalText, lang);
+  const revisionResult = changed ? analyze(revisedText, langFor(revisedText)) : result;
 
   const revision: Revision = {
     text: revisedText,
     changed,
     result: revisionResult,
+    originalLocal,
   };
 
   const firstAc = detail.rekomendasi_ai?.acceptance_criteria?.[0];
@@ -151,5 +156,5 @@ export function adaptBackendAuditToAnalysisResult(
       }
     : null;
 
-  return { result, revision, criteria, rawDetail: detail };
+  return { result, revision, originalLocal, criteria, rawDetail: detail };
 }
