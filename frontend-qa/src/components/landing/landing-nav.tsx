@@ -7,10 +7,11 @@ import { BackendHealthBadge } from '@/components/backend-badge';
 import { useCurrentUser } from '@/lib/auth';
 
 const LINKS = [
-  { href: '#fitur', label: 'Fitur' },
-  { href: '#cara-kerja', label: 'Cara Kerja' },
-  { href: '#standar', label: 'Standar' },
-  { href: '#faq', label: 'FAQ' },
+  { href: '/#fitur', label: 'Fitur' },
+  { href: '/#cara-kerja', label: 'Cara Kerja' },
+  { href: '/#standar', label: 'Standar' },
+  { href: '/#faq', label: 'FAQ' },
+  { href: '/contact', label: 'Hubungi Kami' },
 ];
 
 export function LandingNav() {
@@ -24,9 +25,9 @@ export function LandingNav() {
           <ul className="hidden items-center gap-9 lg:flex">
             {LINKS.map((l) => (
               <li key={l.href}>
-                <a href={l.href} className="text-[16px] text-ink/80 transition hover:text-ink">
+                <Link href={l.href} className="text-[16px] text-ink/80 transition hover:text-ink">
                   {l.label}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>

@@ -21,6 +21,19 @@ export const registerSchema = z
   })
   .refine((v) => v.password === v.confirm, { path: ['confirm'], message: 'Konfirmasi kata sandi tidak cocok.' });
 
+export const CONTACT_MAX = 2000;
+
+export const contactSchema = z.object({
+  name: z.string().trim().min(2, 'Nama minimal 2 karakter.').max(60, 'Nama terlalu panjang.'),
+  email: z.string().trim().min(1, 'Email wajib diisi.').email('Format email tidak valid.'),
+  subject: z.string().trim().min(3, 'Subjek minimal 3 karakter.').max(100, 'Subjek terlalu panjang.'),
+  message: z
+    .string()
+    .trim()
+    .min(10, 'Pesan minimal 10 karakter.')
+    .max(CONTACT_MAX, `Pesan maksimal ${CONTACT_MAX} karakter.`),
+});
+
 export const analyzeRequestSchema = z.object({
   text: z.string().min(1, 'Teks tidak boleh kosong.').max(50_000, 'Teks terlalu panjang (maks. 50.000 karakter).'),
   language: z.enum(['id', 'en']).default('id'),
