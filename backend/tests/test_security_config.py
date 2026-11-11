@@ -44,3 +44,18 @@ def test_dev_two_processes_get_different_ephemeral_secrets():
     s2 = Settings(ENV="dev", JWT_SECRET="")
     validate_security_settings(s2)
     assert s1.JWT_SECRET != s2.JWT_SECRET
+
+
+def test_dev_ephemeral_secret_logs_production_warning(caplog):
+    """P0.1/R1-1: dev mode must warn loudly that the ephemeral secret is
+    unsuitable for production and tokens do not survive restarts."""
+    import logging
+
+    s = Settings(ENV="dev", JWT_SECRET="")
+    with caplog.at_level(logging.WARNING, logger="reqlint.config"):
+        validate_security_settings(s)
+    message = " ".join(record.getMessage() for record in caplog.records)
+    assert "unsuitable for production" in message
+    assert "NOT survive a process restart" in message
+    assert "ENV=production" in message
+    assert "JWT_SECRET" in message

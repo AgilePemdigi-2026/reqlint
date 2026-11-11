@@ -1,8 +1,11 @@
+import logging
 import os
 import secrets
 from typing import List, Union
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger("reqlint.config")
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "ReqLint API"
@@ -88,6 +91,13 @@ def validate_security_settings(s: Settings) -> None:
         return
     if s.ENV == "dev":
         s.JWT_SECRET = secrets.token_hex(32)
+        # P0.1/R1-1: make the dev-only ephemeral secret impossible to miss.
+        logger.warning(
+            "ENV=dev: using an EPHEMERAL random JWT secret for this process. "
+            "This is unsuitable for production, and tokens will NOT survive a "
+            "process restart. For production, set ENV=production and a long "
+            'random JWT_SECRET (e.g. python -c "import secrets; print(secrets.token_hex(32))").'
+        )
     else:
         raise RuntimeError(
             "JWT_SECRET is required when ENV is not 'dev'. "
