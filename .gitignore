@@ -29,6 +29,10 @@ build/
 *.db
 postgres_data/
 
+# Runtime upload cache (PDF temp files; matches .dockerignore)
+storage/
+backend/storage/
+
 # IDE & OS
 .vscode/
 .idea/

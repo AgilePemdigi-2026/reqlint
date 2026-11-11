@@ -7,6 +7,11 @@ Deployment model: **two separate Coolify applications** (backend + frontend).
 No PostgreSQL and no Redis are required for the preview — the backend defaults
 to a local SQLite file and `AUDIT_EXECUTION_MODE=inline`.
 
+> Alternative single-domain setup (one Coolify resource, frontend proxies
+> `/api/*` to the backend internally): see
+> [DEPLOY_COOLIFY_COMPOSE.md](DEPLOY_COOLIFY_COMPOSE.md) which uses
+> `docker-compose.coolify.yml`.
+
 ### Changes included on the `deploy/coolify-preview` branch
 
 | File | Change | Why |
@@ -28,7 +33,7 @@ to a local SQLite file and `AUDIT_EXECUTION_MODE=inline`.
 ## 0. Prerequisites
 
 - Coolify project with two empty applications to be created (one for backend, one for frontend).
-- Source: GitHub `farhanAkbar91/reqlint`, branch `deploy/coolify-preview`.
+- Source: GitHub `AgilePemdigi-2026/reqlint` (canonical; the old `farhanAkbar91/reqlint` URL redirects here), branch `deploy/coolify-preview`.
 - A Groq API key if you want real LLM Stage-2 rewrites (optional — the app runs without it using the built-in mock provider).
 
 ---
