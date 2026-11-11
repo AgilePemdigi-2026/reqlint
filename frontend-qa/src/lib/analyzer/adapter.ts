@@ -9,7 +9,7 @@ import type {
   Revision,
 } from './types';
 import { countWords, splitClauses } from './clauses';
-import { gradeFor } from './analyze';
+import { analyze, gradeFor } from './analyze';
 import type { BackendAuditDetail } from '../api';
 
 export function adaptBackendAuditToAnalysisResult(
@@ -71,52 +71,47 @@ export function adaptBackendAuditToAnalysisResult(
   const score = Math.round(rawScore);
   const grade: Grade = gradeFor(score, clauses.length > 0);
 
-  // Evaluasi dimensi INVEST dari model backend
+  // P0/UI-48: pemetaan INVEST null-safe. Nilai breakdown yang hilang (null)
+  // berarti kriteria BELUM dievaluasi — bukan lulus.
   const investData = detail.scorecard?.breakdown?.invest || {};
+  const stateOf = (v: number | null | undefined): 'pass' | 'fail' | 'unknown' =>
+    v == null ? 'unknown' : v >= 70 ? 'pass' : 'fail';
+  const investCheck = (
+    key: InvestCheck['key'],
+    label: string,
+    raw: number | null | undefined,
+  ): InvestCheck => {
+    const state = stateOf(raw);
+    return {
+      key,
+      label,
+      passed: state === 'pass',
+      notEvaluated: state === 'unknown',
+      note:
+        state === 'unknown'
+          ? 'Belum dievaluasi — data INVEST tidak tersedia dari backend'
+          : 'Diverifikasi model INVEST backend',
+    };
+  };
   const invest: InvestCheck[] = [
-    {
-      key: 'I',
-      label: 'Independent',
-      passed: (investData.independent ?? 80) >= 70,
-      note: 'Diverifikasi model INVEST backend',
-    },
-    {
-      key: 'N',
-      label: 'Negotiable',
-      passed: (investData.negotiable ?? 80) >= 70,
-      note: 'Diverifikasi model INVEST backend',
-    },
-    {
-      key: 'V',
-      label: 'Valuable',
-      passed: (investData.valuable ?? 80) >= 70,
-      note: 'Diverifikasi model INVEST backend',
-    },
-    {
-      key: 'E',
-      label: 'Estimable',
-      passed: (investData.estimable ?? 70) >= 70,
-      note: 'Diverifikasi model INVEST backend',
-    },
-    {
-      key: 'S',
-      label: 'Small',
-      passed: (investData.small ?? 85) >= 70,
-      note: 'Diverifikasi model INVEST backend',
-    },
-    {
-      key: 'T',
-      label: 'Testable',
-      passed: (investData.testable ?? 60) >= 70,
-      note: 'Diverifikasi model INVEST backend',
-    },
+    investCheck('I', 'Independent', investData.independent),
+    investCheck('N', 'Negotiable', investData.negotiable),
+    investCheck('V', 'Valuable', investData.valuable),
+    investCheck('E', 'Estimable', investData.estimable),
+    investCheck('S', 'Small', investData.small),
+    investCheck('T', 'Testable', investData.testable),
   ];
 
   const isoVals = Object.values(detail.scorecard?.breakdown?.iso_29148 || {}).filter(
     (v): v is number => typeof v === 'number'
   );
   const avgIso = isoVals.length ? Math.round(isoVals.reduce((a, b) => a + b, 0) / isoVals.length) : score;
-  const avgInvest = invest.length ? Math.round((invest.filter((i) => i.passed).length / invest.length) * 100) : score;
+  // P0/UI-48: compliance INVEST hanya dihitung dari kriteria yang benar-benar
+  // dievaluasi; null bila tidak ada sama sekali (bukan 0%, bukan 100%).
+  const evaluatedInvest = invest.filter((i) => !i.notEvaluated);
+  const avgInvest = evaluatedInvest.length
+    ? Math.round((evaluatedInvest.filter((i) => i.passed).length / evaluatedInvest.length) * 100)
+    : null;
 
   const result: AnalysisResult = {
     language: lang,
@@ -135,20 +130,11 @@ export function adaptBackendAuditToAnalysisResult(
 
   const changed = Boolean(revisedText && revisedText.trim() !== originalText.trim());
 
-  // Buat dummy result untuk teks revisi (skor revisi biasanya mendekati 90-100)
-  const revisedClauses = splitClauses(revisedText);
-  const revisedScore = Math.min(100, Math.max(score, 90));
-  const revisionResult: AnalysisResult = {
-    ...result,
-    clauses: revisedClauses,
-    wordCount: revisedClauses.reduce((n, c) => n + countWords(c.text), 0),
-    findings: [],
-    counts: { ambiguity: 0, 'non-testable': 0, incomplete: 0, 'weak-directive': 0, 'passive-voice': 0 },
-    score: revisedScore,
-    grade: gradeFor(revisedScore, true),
-    compliance: { iso29148: 95, invest: 100 },
-    invest: invest.map((i) => ({ ...i, passed: true })),
-  };
+  // P0/FUNC-05 & UI-47: hasil "setelah revisi" kini merupakan evaluasi NYATA
+  // dari analyzer lokal yang sama (deterministik) pada teks revisi — tidak ada
+  // lagi skor minimal 90, compliance hardcode, atau findings kosong buatan.
+  // Bila teks tidak berubah, hasilnya identik dengan hasil audit.
+  const revisionResult: AnalysisResult = changed ? analyze(revisedText, lang) : result;
 
   const revision: Revision = {
     text: revisedText,

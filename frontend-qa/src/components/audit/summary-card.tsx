@@ -1,6 +1,6 @@
 'use client';
 
-import { AudioLines, Check, FlaskConical, Flag, ListChecks, ScanLine, ShieldCheck, ArrowUpRight, X } from 'lucide-react';
+import { AudioLines, Check, FlaskConical, Flag, ListChecks, Minus, ScanLine, ShieldCheck, ArrowUpRight, X } from 'lucide-react';
 import { useState } from 'react';
 import { CATEGORIES, type AnalysisResult, type Category } from '@/lib/analyzer';
 import { CATEGORY_LABEL } from '@/lib/format';
@@ -13,14 +13,15 @@ const ICONS: Record<Category, typeof ScanLine> = {
   'passive-voice': AudioLines,
 };
 
-function Meter({ label, value }: { label: string; value: number }) {
+function Meter({ label, value }: { label: string; value: number | null }) {
   return (
     <span className="inline-flex items-center gap-2 text-[12px] text-muted">
       {label}
       <span className="h-1 w-10 overflow-hidden rounded-full bg-line/[0.1]" aria-hidden>
-        <span className="block h-full rounded-full bg-muted/70" style={{ width: `${value}%` }} />
+        <span className="block h-full rounded-full bg-muted/70" style={{ width: `${value ?? 0}%` }} />
       </span>
-      <span className="font-medium text-ink">{value}%</span>
+      {/* P0/UI-48: null = belum dievaluasi — tampilkan "–", bukan angka buatan. */}
+      <span className="font-medium text-ink">{value ?? '–'}</span>
     </span>
   );
 }
@@ -82,10 +83,20 @@ export function SummaryCard({ result }: { result: AnalysisResult }) {
               <li key={c.key} className="flex items-start gap-2.5 rounded-xl bg-line/[0.04] p-3">
                 <span
                   className={`mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                    c.passed ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                    c.notEvaluated
+                      ? 'bg-line/[0.1] text-muted'
+                      : c.passed
+                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
                   }`}
                 >
-                  {c.passed ? <Check size={12} aria-label="Lulus" /> : <X size={12} aria-label="Belum lulus" />}
+                  {c.notEvaluated ? (
+                    <Minus size={12} aria-label="Belum dievaluasi" />
+                  ) : c.passed ? (
+                    <Check size={12} aria-label="Lulus" />
+                  ) : (
+                    <X size={12} aria-label="Belum lulus" />
+                  )}
                 </span>
                 <span>
                   <span className="block text-[12.5px] font-semibold">

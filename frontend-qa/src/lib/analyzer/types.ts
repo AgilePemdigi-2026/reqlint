@@ -43,6 +43,8 @@ export interface InvestCheck {
   key: InvestKey;
   label: string;
   passed: boolean;
+  /** P0/UI-48: true bila backend tidak menyediakan evaluasi untuk kriteria ini. */
+  notEvaluated?: boolean;
   note: string;
 }
 
@@ -62,7 +64,8 @@ export interface AnalysisResult {
   counts: Record<Category, number>;
   score: number;
   grade: Grade;
-  compliance: { iso29148: number; invest: number };
+  /** P0/UI-48: `invest` bernilai null bila tidak ada kriteria yang ter-evaluasi. */
+  compliance: { iso29148: number; invest: number | null };
   invest: InvestCheck[];
 }
 

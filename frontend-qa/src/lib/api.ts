@@ -189,7 +189,8 @@ export interface BackendScorecard {
   skor_kualitas: number;
   breakdown: {
     iso_29148?: Record<string, number | null>;
-    invest?: Record<string, number>;
+    /** P0/UI-48: null = kriteria belum dievaluasi (bukan lulus). */
+    invest?: Record<string, number | null>;
   };
 }
 
