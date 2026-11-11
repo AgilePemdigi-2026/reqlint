@@ -196,10 +196,15 @@ export function Privacy() {
           <Lock size={24} strokeWidth={1.5} aria-hidden />
         </span>
         <div className="flex-1">
-          <h2 className="text-[26px] font-semibold tracking-tight">Draf Anda tetap di perangkat Anda</h2>
+          <h2 className="text-[26px] font-semibold tracking-tight">Transparansi data: apa yang terjadi dengan draf Anda</h2>
           <p className="mt-2 max-w-[640px] text-[15.5px] leading-relaxed text-muted">
-            Mesin analisis berjalan sepenuhnya di browser. Teks, berkas PDF, dan riwayat audit disimpan secara lokal dan tidak
-            dikirim ke server mana pun. Hasilnya deterministik: teks yang sama selalu menghasilkan skor yang sama.
+            Ada dua mode analisis. <strong>Demo di halaman ini</strong> berjalan sepenuhnya di browser — teks demo tidak
+            dikirim ke server. <strong>Saat Anda memakai aplikasi (editor &amp; audit)</strong>, teks dan berkas PDF
+            diunggah ke server ReqLint untuk dianalisis dan disimpan pada riwayat akun Anda. Bila tahap rekomendasi AI
+            aktif, teks juga dikirim ke penyedia model bahasa eksternal (mis. Groq) untuk diproses.
+          </p>
+          <p className="mt-2 max-w-[640px] text-[15.5px] leading-relaxed text-muted">
+            Hasil analisis aturan tetap deterministik: teks yang sama selalu menghasilkan skor yang sama.
           </p>
         </div>
       </div>
@@ -211,11 +216,11 @@ export function Privacy() {
 const FAQ = [
   [
     'Apakah ReqLint memakai AI?',
-    'Tidak. Deteksi berbasis kamus istilah dan aturan (regex) yang deterministik, sehingga hasilnya konsisten dan dapat dijelaskan. Anggap ini alat bantu review, bukan pengganti penilaian analis.',
+    'Demo di halaman ini tidak. Aplikasi lengkap memakai dua lapis: analisis aturan deterministik (kamus & regex) di backend, dan — bila dikonfigurasi — model bahasa eksternal (mis. Groq) untuk saran revisi dan acceptance criteria. Tanpa provider AI yang aktif, saran revisi berupa contoh generik bawaan, bukan hasil model AI.',
   ],
   [
     'Apakah teks saya dikirim ke server?',
-    'Tidak. Analisis, pembacaan PDF, dan penyimpanan riwayat semuanya terjadi di browser Anda.',
+    'Di demo halaman ini tidak — analisis berjalan di browser. Di aplikasi (editor & audit), teks dan berkas PDF diunggah ke server ReqLint untuk dianalisis dan disimpan pada riwayat akun Anda. Bila rekomendasi AI aktif, teks juga diteruskan ke penyedia model bahasa eksternal yang dikonfigurasi (mis. Groq).',
   ],
   [
     'Bahasa apa yang didukung?',

@@ -389,6 +389,12 @@ export default function AuditPage() {
 
         <FindingsTable findings={result.findings} onOpenEditor={() => openInEditor(currentText)} />
 
+        <p className="text-[12.5px] leading-relaxed text-muted">
+          Catatan privasi: draf dan dokumen diproses di server ReqLint dan tersimpan pada riwayat akun Anda. Saran
+          tahap Stage-2 (revisi &amp; acceptance criteria) dihasilkan model bahasa di server — bila provider eksternal
+          dikonfigurasi, teks draf dikirim ke penyedia model tersebut (mis. Groq) untuk diproses.
+        </p>
+
         <div className="grid gap-5 md:grid-cols-2">
           <RevisionCard
             revision={revision}

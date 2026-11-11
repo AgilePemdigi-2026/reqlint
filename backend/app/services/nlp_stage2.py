@@ -25,6 +25,18 @@ class Stage2OutputModel(BaseModel):
     extra_findings: List[Dict[str, Any]] = Field(default_factory=list)
 
 class NLPStage2Service:
+    @staticmethod
+    def _sanitize_story_text(text: str) -> str:
+        """
+        ML-20 mitigation: teks user adalah DATA, bukan instruksi. Escape delimiter
+        <user_story> agar story tidak dapat menutup tag lebih awal lalu menyisipkan
+        instruksi di luar blok data.
+        """
+        return (
+            text.replace("</user_story>", "<\\/user_story>")
+            .replace("<user_story>", "<\\user_story>")
+        )
+
     @classmethod
     async def run_stage2(cls, draft_text: str, stage1_findings: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
@@ -49,7 +61,8 @@ class NLPStage2Service:
             '  "invest": {"independent": true, "negotiable": true, "valuable": true, "estimable": true, "small": true, "testable": true}\n'
             "}"
         )
-        user_prompt = f"<user_story>\n{draft_text}\n</user_story>"
+        # ML-20: escape delimiter agar isi story tidak bisa menutup tag lebih awal (prompt injection)
+        user_prompt = f"<user_story>\n{cls._sanitize_story_text(draft_text)}\n</user_story>"
 
         # Retry max 1 on invalid JSON
         for attempt in range(2):

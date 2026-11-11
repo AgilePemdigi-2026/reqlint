@@ -46,7 +46,7 @@ export function Hero() {
       <div>
         <DemoCard />
         <p className="mt-5 flex items-center justify-center gap-2 text-[15px] text-ink/55">
-          <Lock size={15} aria-hidden /> Analisis berjalan di browser Anda — teks tidak dikirim ke server.
+          <Lock size={15} aria-hidden /> Analisis pada demo ini berjalan di browser Anda — teks demo tidak dikirim ke server.
         </p>
       </div>
     </section>
