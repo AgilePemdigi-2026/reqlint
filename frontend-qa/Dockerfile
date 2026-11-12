@@ -19,9 +19,12 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ARG API_PROXY_TARGET=http://backend:8000
 ENV API_PROXY_TARGET=$API_PROXY_TARGET
 
-# Install dependencies from the lockfile (devDependencies required for the build)
+# Install dependencies from the lockfile (devDependencies required for the build).
+# --legacy-peer-deps matches CI (.github/workflows/ci.yml): vitest@5 declares
+# peerOptional @types/node ^22 || >=24 while the project pins @types/node@20,
+# so a plain `npm ci` fails with ERESOLVE.
 COPY frontend-qa/package.json frontend-qa/package-lock.json ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 # Copy source and produce the production build
 COPY frontend-qa ./
