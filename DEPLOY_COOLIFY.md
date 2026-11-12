@@ -51,7 +51,8 @@ to a local SQLite file and `AUDIT_EXECUTION_MODE=inline`.
 
 | Variable | Value | Notes |
 |---|---|---|
-| `JWT_SECRET` | *long random string* (REQUIRED) | e.g. `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `ENV` | `production` | REQUIRED — activates the app-side security guard: without it (or without `JWT_SECRET`) the backend refuses to start (P0/SEC-01) |
+| `JWT_SECRET` | *long random string* (REQUIRED) | e.g. `python -c "import secrets; print(secrets.token_hex(32))"` — enforced by fail-fast startup check when `ENV != 'dev'` |
 | `CORS_ORIGINS` | `https://<frontend-domain>,http://localhost:3000` | set after the frontend domain exists |
 | `SLM_PROVIDER` | `openai_compatible` | optional; omit for mock |
 | `SLM_BASE_URL` | `https://api.groq.com/openai` | optional |

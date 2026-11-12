@@ -14,6 +14,10 @@ export interface Audit {
   title: string;
   text: string;
   language: Language;
+  /** P0/FUNC-06: skor tersimpan dari backend untuk item riwayat backend
+   * (null selama audit masih PROCESSING). Item lokal tidak memiliki ini. */
+  backendScore?: number | null;
+  backendStatus?: string | null;
 }
 
 export interface Draft {

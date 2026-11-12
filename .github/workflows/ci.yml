@@ -31,6 +31,12 @@ jobs:
 
       - name: Check Frontend Workspace
         working-directory: ./frontend-qa
+        # P0.1 CI fix: vitest@5 declares peerOptional @types/node ^22 || >=24
+        # while the project pins @types/node@20, so plain `npm ci` / `npm
+        # install` fail with ERESOLVE. package-lock.json was produced and the
+        # test/build suite verified locally with --legacy-peer-deps, so CI
+        # installs with the same deterministic strategy. `npm run lint` is NOT
+        # masked anymore: a lint failure must fail this workflow.
         run: |
-          npm ci || npm install
-          npm run lint || echo "Lint finished"
+          npm ci --legacy-peer-deps
+          npm run lint

@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { PageHeader } from '@/components/app-shell';
 import { useToast } from '@/components/providers';
-import { analyze } from '@/lib/analyzer';
 import type { Category, Grade } from '@/lib/analyzer';
+import { buildHistoryRows, rowGrade, rowScore, type HistoryRow } from '@/lib/history';
 import { clearAudits, deleteAudit, syncAudits, useAudits, type Audit } from '@/lib/audits';
 import { apiGetAuditsHistory } from '@/lib/api';
 import { CATEGORY_LABEL, GRADE_BADGE, GRADE_LABEL, formatDate } from '@/lib/format';
@@ -57,6 +57,9 @@ export default function HistoryPage() {
           title: item.judul_klausul || `Audit #${item.id_audit}`,
           text: item.judul_klausul || 'Klausul User Story',
           language: 'id',
+          // P0/FUNC-06: bawa skor & status TERSIMPAN dari backend.
+          backendScore: item.skor_kualitas,
+          backendStatus: item.status_audit,
         }));
         syncAudits(backendAudits);
       } catch (err) {
@@ -83,22 +86,15 @@ export default function HistoryPage() {
     setCategory('all');
   };
 
-  const rows = useMemo(
-    () =>
-      audits.map((a) => {
-        const text = a?.text || a?.title || 'User Story';
-        const language = a?.language || 'id';
-        return {
-          audit: a,
-          result: analyze(text, language),
-        };
-      }),
-    [audits],
-  );
+  // P0/FUNC-06 & UI-46 + P0.1/R3-1: item backend menampilkan skor & status
+  // TERSIMPAN dari backend; PROCESSING/FAILED tampil sebagai status tanpa
+  // skor placeholder. Mesin lokal hanya untuk audit offline di browser ini.
+  const rows = useMemo<HistoryRow[]>(() => buildHistoryRows(audits), [audits]);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const list = rows.filter(({ audit, result }) => {
+    const list = rows.filter((row) => {
+      const { audit, result } = row;
       const id = audit?.id || '';
       const title = audit?.title || '';
       const text = audit?.text || '';
@@ -107,9 +103,13 @@ export default function HistoryPage() {
 
       if (q && !`${id} ${title} ${text}`.toLowerCase().includes(q)) return false;
       if (!inDateRange(createdAt, dateRange)) return false;
-      if (grade !== 'all' && result.grade !== grade) return false;
+      // P0.1/R3-1: baris pending (PROCESSING/FAILED) tidak punya grade — tidak
+      // ikut filter grade.
+      if (grade !== 'all' && rowGrade(row) !== grade) return false;
       if (lang !== 'all' && language !== lang) return false;
-      if (category !== 'all' && !result.findings.some((f) => f.category === category)) return false;
+      // Filter kategori hanya bermakna untuk audit lokal (temuan detail tidak
+      // tersedia pada payload riwayat backend).
+      if (category !== 'all' && !(result && result.findings.some((f) => f.category === category))) return false;
       return true;
     });
 
@@ -120,9 +120,9 @@ export default function HistoryPage() {
         case 'oldest':
           return aDate.localeCompare(bDate);
         case 'score-desc':
-          return b.result.score - a.result.score;
+          return rowScore(b) - rowScore(a);
         case 'score-asc':
-          return a.result.score - b.result.score;
+          return rowScore(a) - rowScore(b);
         default:
           return bDate.localeCompare(aDate);
       }
@@ -234,7 +234,10 @@ export default function HistoryPage() {
         </div>
       ) : (
         <ul className="card divide-y divide-line/[0.07] overflow-hidden p-2">
-          {visible.map(({ audit, result }) => (
+          {visible.map((row) => {
+            const { audit, result } = row;
+            const grade = rowGrade(row);
+            return (
             <li key={audit.id} className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl px-4 py-4 transition hover:bg-line/[0.03]">
               <Link href={`/audit/${audit.id}`} className="min-w-0 flex-1 basis-[260px]">
                 <p className="flex items-center gap-2.5 text-[12px] text-muted">
@@ -249,10 +252,27 @@ export default function HistoryPage() {
               </Link>
 
               <div className="flex items-center gap-4">
-                <span className="text-[12.5px] text-muted">{result.findings.length} temuan</span>
-                <span className={`pill ${GRADE_BADGE[result.grade]}`}>
-                  {result.score} · {GRADE_LABEL[result.grade]}
+                <span className="text-[12.5px] text-muted">
+                  {row.pendingStatus
+                    ? row.pendingStatus === 'PROCESSING'
+                      ? 'Analisis sedang berjalan…'
+                      : row.pendingStatus === 'FAILED'
+                        ? 'Analisis gagal — skor tidak tersedia'
+                        : row.pendingStatus
+                    : result
+                      ? `${result.findings.length} temuan`
+                      : 'Skor tersimpan dari backend'}
                 </span>
+                {row.pendingStatus ? (
+                  // P0.1/R3-1: status, bukan skor placeholder 0.0.
+                  <span className="pill bg-line/[0.06] text-muted">
+                    {row.pendingStatus === 'FAILED' ? 'Gagal' : 'Memproses'}
+                  </span>
+                ) : (
+                  <span className={`pill ${GRADE_BADGE[grade as Grade]}`}>
+                    {rowScore(row)} · {GRADE_LABEL[grade as Grade]}
+                  </span>
+                )}
               </div>
 
               <div className="flex items-center gap-1">
@@ -269,7 +289,8 @@ export default function HistoryPage() {
                 </button>
               </div>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </>

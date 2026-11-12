@@ -57,7 +57,9 @@ export function revise(text: string, lang: Language): Revision {
     const revised = reviseClause(c.text, lang);
     if (revised !== c.text) out = out.slice(0, c.start) + revised + out.slice(c.end);
   }
-  return { text: out, changed: out !== text, result: analyze(out, lang) };
+  // P0.1/R2-1: Revision kini juga membawa evaluasi lokal atas teks asli agar
+  // before/after memakai evaluator yang sama (skema konsisten dengan adapter).
+  return { text: out, changed: out !== text, result: analyze(out, lang), originalLocal: analyze(text, lang) };
 }
 
 // ───────────── Acceptance criteria (BDD) ─────────────

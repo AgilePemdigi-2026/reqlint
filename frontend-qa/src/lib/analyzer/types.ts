@@ -43,6 +43,8 @@ export interface InvestCheck {
   key: InvestKey;
   label: string;
   passed: boolean;
+  /** P0/UI-48: true bila backend tidak menyediakan evaluasi untuk kriteria ini. */
+  notEvaluated?: boolean;
   note: string;
 }
 
@@ -62,7 +64,8 @@ export interface AnalysisResult {
   counts: Record<Category, number>;
   score: number;
   grade: Grade;
-  compliance: { iso29148: number; invest: number };
+  /** P0/UI-48: `invest` bernilai null bila tidak ada kriteria yang ter-evaluasi. */
+  compliance: { iso29148: number; invest: number | null };
   invest: InvestCheck[];
 }
 
@@ -71,4 +74,9 @@ export interface Revision {
   /** True bila ada perubahan dibanding teks asli. */
   changed: boolean;
   result: AnalysisResult;
+  /** P0.1/R2-1: evaluasi lokal atas TEKS ASLI dengan analyzer yang sama —
+   * dipakai DiffViewer agar before/after memakai satu metode konsisten.
+   * Skor audit resmi dari backend tetap ada di `AnalysisResult` hasil adaptasi
+   * backend dan tidak pernah ditimpa nilai ini. */
+  originalLocal: AnalysisResult;
 }

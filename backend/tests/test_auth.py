@@ -47,9 +47,12 @@ async def test_register_password_too_short(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_register_duplicate_email(client: AsyncClient):
+    # Catatan isolasi (ditemukan saat P0): suite BDD di backend/tests/bdd/ terkoleksi
+    # SEBELUM file test_*.py dan juga mendaftarkan "duplicate@example.com" pada DB
+    # in-memory bersama (session-scoped) — sehingga email ini harus unik lintas suite.
     payload = {
         "name": "Farhan Akbar",
-        "email": "duplicate@example.com",
+        "email": "duplicate-auth-test@example.com",
         "password": "SecretP@ss123",
         "password_confirmation": "SecretP@ss123"
     }

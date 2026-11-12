@@ -243,18 +243,21 @@ class InvestMLService:
 
         for target_name, key in TARGET_KEY_MAP.items():
             model = models.get(target_name)
-            if model is not None:
-                try:
-                    pred = int(model.predict(X)[0])
-                    results[key] = bool(pred == 1)
-                    if hasattr(model, "predict_proba"):
-                        proba = float(model.predict_proba(X)[0][1])
-                        probs[key] = round(proba, 3)
-                except Exception as e:
-                    logger.debug(f"Prediction failed for {target_name}: {e}")
-                    results[key] = True
-            else:
-                results[key] = True
+            if model is None:
+                # P0/ML-07: a missing model is an UNKNOWN state, not a pass.
+                results[key] = None
+                continue
+            try:
+                pred = int(model.predict(X)[0])
+                results[key] = bool(pred == 1)
+                if hasattr(model, "predict_proba"):
+                    proba = float(model.predict_proba(X)[0][1])
+                    probs[key] = round(proba, 3)
+            except Exception as e:
+                # P0/ML-07: fail closed — surface the failure instead of
+                # fabricating a passing evaluation.
+                logger.warning(f"Prediction failed for {target_name}: {e}")
+                raise
 
         results["probabilities"] = probs
         return results

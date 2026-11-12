@@ -63,6 +63,7 @@ export function DiffViewer({
   after,
   beforeScore,
   afterScore,
+  localEstimate = false,
   onApply,
   canApply,
 }: {
@@ -70,6 +71,9 @@ export function DiffViewer({
   after: string;
   beforeScore: number;
   afterScore: number;
+  /** P0.1/R2-1: true bila kedua skor adalah estimasi mesin lokal (evaluator
+   * yang sama untuk kedua sisi) — bukan skor audit resmi dari backend. */
+  localEstimate?: boolean;
   onApply: () => void;
   canApply: boolean;
 }) {
@@ -93,10 +97,15 @@ export function DiffViewer({
       </div>
 
       <div className="mt-5 grid gap-4 md:grid-cols-2">
-        <Pane title="Draf Orisinal" badge={`Skor ${beforeScore}`} badgeClass="bg-line/[0.06] text-muted" lines={left} />
+        <Pane
+          title="Draf Orisinal"
+          badge={localEstimate ? `Estimasi lokal ${beforeScore}` : `Skor ${beforeScore}`}
+          badgeClass="bg-line/[0.06] text-muted"
+          lines={left}
+        />
         <Pane
           title="Revised Requirement"
-          badge={`Skor ${afterScore}`}
+          badge={localEstimate ? `Estimasi lokal ${afterScore}` : `Skor ${afterScore}`}
           badgeClass="bg-emerald-100 text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-300"
           lines={right}
           highlight
@@ -116,6 +125,13 @@ export function DiffViewer({
           <MapPin size={12} aria-hidden /> Anda selalu memegang kendali atas revisi.
         </span>
       </div>
+
+      {localEstimate && (
+        <p className="mt-2 text-[11px] leading-snug text-muted">
+          Kedua skor di atas adalah <strong>estimasi mesin lokal yang sama</strong> (deterministik) agar
+          before/after dapat dibandingkan — skor audit resmi dari backend tetap tertera pada kartu Ringkasan.
+        </p>
+      )}
     </section>
   );
 }

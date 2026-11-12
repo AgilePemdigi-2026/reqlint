@@ -32,6 +32,9 @@ services:
       DATABASE_URL: sqlite+aiosqlite:///./data/reqlint.db
       # Required: fail the deploy loudly instead of running with the default secret.
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in Coolify (long random string)}
+      # P0/SEC-01 & DOC-04: activate the app-side security guard (missing
+      # JWT_SECRET / insecure defaults abort startup when ENV != 'dev').
+      ENV: production
       # Auth/session still works with the default (empty) value because the
       # frontend calls the API same-origin through the Next.js proxy.
       CORS_ORIGINS: ${CORS_ORIGINS:-}
