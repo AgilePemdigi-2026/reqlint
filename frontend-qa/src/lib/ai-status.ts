@@ -1,9 +1,11 @@
 import type { BackendAuditDetail } from './api';
+import { translations, type UILocale } from './i18n';
 
 /**
  * P0.1/R3-2: status transparan untuk saran tahap AI (Stage-2).
  * Membedakan: hasil provider nyata / contoh mock / gagal-tidak-tersedia /
  * belum tersedia — tanpa mengekspos detail error internal ke pengguna.
+ * Task 09: label & penjelasan mengikuti locale UI.
  */
 export type AiSuggestionKind = 'mock' | 'provider' | 'unavailable' | 'none';
 
@@ -15,35 +17,38 @@ export interface AiSuggestionStatus {
   explanation: string;
 }
 
+function tr(locale: UILocale, key: string): string {
+  return translations[key]?.[locale] ?? translations[key]?.['id'] ?? key;
+}
+
 export function resolveAiSuggestionStatus(
-  detail: Pick<BackendAuditDetail, 'ai_suggestion_source' | 'status_audit' | 'stage2_status'>
+  detail: Pick<BackendAuditDetail, 'ai_suggestion_source' | 'status_audit' | 'stage2_status'>,
+  locale: UILocale = 'id',
 ): AiSuggestionStatus {
   if (detail.ai_suggestion_source === 'mock') {
     return {
       kind: 'mock',
-      shortLabel: 'Contoh demo (mock)',
-      explanation:
-        'Saran revisi & acceptance criteria berupa contoh generik bawaan (mode demo) — bukan hasil model AI. Konfigurasikan provider AI untuk mendapatkan saran nyata.',
+      shortLabel: tr(locale, 'ai_status.mock_label'),
+      explanation: tr(locale, 'ai_status.mock_desc'),
     };
   }
   if (detail.ai_suggestion_source === 'provider') {
     return {
       kind: 'provider',
-      shortLabel: 'Dihasilkan model AI',
-      explanation:
-        'Saran revisi & acceptance criteria dihasilkan model bahasa yang dikonfigurasi di server ReqLint (bisa berupa provider eksternal).',
+      shortLabel: tr(locale, 'ai_status.provider_label'),
+      explanation: tr(locale, 'ai_status.provider_desc'),
     };
   }
   if (detail.status_audit === 'PARTIAL' || detail.status_audit === 'FAILED' || detail.stage2_status === 'FAILED') {
     return {
       kind: 'unavailable',
-      shortLabel: 'Saran AI tidak tersedia',
-      explanation: 'Tahap AI gagal dijalankan untuk audit ini. Gunakan tombol Analisis Ulang untuk mencoba kembali.',
+      shortLabel: tr(locale, 'ai_status.unavailable_label'),
+      explanation: tr(locale, 'ai_status.unavailable_desc'),
     };
   }
   return {
     kind: 'none',
-    shortLabel: 'Saran AI belum tersedia',
-    explanation: 'Saran AI belum tersedia untuk audit ini.',
+    shortLabel: tr(locale, 'ai_status.none_label'),
+    explanation: tr(locale, 'ai_status.none_desc'),
   };
 }

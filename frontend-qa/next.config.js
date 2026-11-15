@@ -14,7 +14,6 @@ const API_PROXY_TARGET = process.env.API_PROXY_TARGET || 'http://backend:8000';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  outputFileTracing: false,
   async rewrites() {
     return {
       // afterFiles: filesystem routes (frontend pages) always win first,

@@ -1,30 +1,57 @@
 import { z } from 'zod';
+import { getUILocale, type UILocale } from './i18n';
 
 export const MAX_CHARS = 20_000;
 
-export const loginSchema = z.object({
-  email: z.string().trim().min(1, 'Email wajib diisi.').email('Format email tidak valid.'),
-  password: z.string().min(1, 'Kata sandi wajib diisi.'),
-});
+const messages: Record<string, { id: string; en: string }> = {
+  email_required: { id: 'Email wajib diisi.', en: 'Email is required.' },
+  email_invalid: { id: 'Format email tidak valid.', en: 'Email format is invalid.' },
+  password_required: { id: 'Kata sandi wajib diisi.', en: 'Password is required.' },
+  name_min: { id: 'Nama minimal 2 karakter.', en: 'Name must be at least 2 characters.' },
+  name_max: { id: 'Nama terlalu panjang.', en: 'Name is too long.' },
+  password_min: { id: 'Kata sandi minimal 8 karakter.', en: 'Password must be at least 8 characters.' },
+  password_letter: { id: 'Kata sandi harus memuat minimal 1 huruf.', en: 'Password must contain at least 1 letter.' },
+  password_digit: { id: 'Kata sandi harus memuat minimal 1 angka.', en: 'Password must contain at least 1 digit.' },
+  confirm_required: { id: 'Konfirmasi kata sandi wajib diisi.', en: 'Password confirmation is required.' },
+  terms_required: { id: 'Anda harus menyetujui ketentuan layanan.', en: 'You must agree to the terms of service.' },
+  confirm_mismatch: { id: 'Konfirmasi kata sandi tidak cocok.', en: 'Password confirmation does not match.' },
+  text_required: { id: 'Teks tidak boleh kosong.', en: 'Text cannot be empty.' },
+  text_too_long: { id: 'Teks terlalu panjang (maks. 50.000 karakter).', en: 'Text is too long (max 50,000 characters).' },
+};
 
-export const registerSchema = z
-  .object({
-    name: z.string().trim().min(2, 'Nama minimal 2 karakter.').max(60, 'Nama terlalu panjang.'),
-    email: z.string().trim().min(1, 'Email wajib diisi.').email('Format email tidak valid.'),
-    password: z
-      .string()
-      .min(8, 'Kata sandi minimal 8 karakter.')
-      .regex(/[A-Za-z]/, 'Kata sandi harus memuat minimal 1 huruf.')
-      .regex(/\d/, 'Kata sandi harus memuat minimal 1 angka.'),
-    confirm: z.string().min(1, 'Konfirmasi kata sandi wajib diisi.'),
-    terms: z.literal(true, { message: 'Anda harus menyetujui ketentuan layanan.' }),
-  })
-  .refine((v) => v.password === v.confirm, { path: ['confirm'], message: 'Konfirmasi kata sandi tidak cocok.' });
+function msg(key: string, locale: UILocale): string {
+  return messages[key]?.[locale] ?? messages[key]?.id ?? key;
+}
 
-export const analyzeRequestSchema = z.object({
-  text: z.string().min(1, 'Teks tidak boleh kosong.').max(50_000, 'Teks terlalu panjang (maks. 50.000 karakter).'),
-  language: z.enum(['id', 'en']).default('id'),
-});
+export function loginSchema(locale: UILocale = getUILocale()) {
+  return z.object({
+    email: z.string().trim().min(1, msg('email_required', locale)).email(msg('email_invalid', locale)),
+    password: z.string().min(1, msg('password_required', locale)),
+  });
+}
+
+export function registerSchema(locale: UILocale = getUILocale()) {
+  return z
+    .object({
+      name: z.string().trim().min(2, msg('name_min', locale)).max(60, msg('name_max', locale)),
+      email: z.string().trim().min(1, msg('email_required', locale)).email(msg('email_invalid', locale)),
+      password: z
+        .string()
+        .min(8, msg('password_min', locale))
+        .regex(/[A-Za-z]/, msg('password_letter', locale))
+        .regex(/\d/, msg('password_digit', locale)),
+      confirm: z.string().min(1, msg('confirm_required', locale)),
+      terms: z.literal(true, { message: msg('terms_required', locale) }),
+    })
+    .refine((v) => v.password === v.confirm, { path: ['confirm'], message: msg('confirm_mismatch', locale) });
+}
+
+export function analyzeRequestSchema(locale: UILocale = getUILocale()) {
+  return z.object({
+    text: z.string().min(1, msg('text_required', locale)).max(50_000, msg('text_too_long', locale)),
+    language: z.enum(['id', 'en']).default('id'),
+  });
+}
 
 /** Ambil pesan error pertama per field dari ZodError. */
 export function fieldErrors(error: z.ZodError): Record<string, string> {

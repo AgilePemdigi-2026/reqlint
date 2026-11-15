@@ -28,16 +28,14 @@ function Navbar({ name, email }: { name: string; email: string }) {
 
   return (
     <header className="sticky top-0 z-40 border-b border-black/[0.07] bg-[#f7f5f1]/90 backdrop-blur-md dark:border-white/10 dark:bg-[#141416]/90">
-      <nav className="mx-auto flex h-[76px] max-w-[1280px] items-center justify-between gap-3 px-6" aria-label="Navigasi utama">
+      <nav className="mx-auto flex h-[76px] max-w-[1280px] items-center justify-between gap-3 px-6" aria-label={t('nav.main_nav_aria')}>
         <div className="flex items-center gap-2 sm:gap-4">
           <Logo />
           <span className="hidden h-7 w-px bg-line/10 sm:block" aria-hidden />
           <div className="flex items-center gap-1 rounded-full bg-black/[0.05] p-1 dark:bg-white/[0.07]">
             {TABS.map(({ href, labelKey, icon: Icon, match }) => {
               const active = match(pathname);
-              const label = labelKey === 'nav.help' ? (t('help.title').startsWith('Panduan') ? 'Panduan' : 'Help')
-                : labelKey === 'nav.contact' ? (t('contact.title').startsWith('Hubungi') ? 'Kontak' : 'Contact')
-                : t(labelKey);
+              const label = t(labelKey);
               return (
                 <Link
                   key={href}
@@ -70,7 +68,7 @@ function Navbar({ name, email }: { name: string; email: string }) {
               <button
                 type="button"
                 onClick={toggleNotif}
-                aria-label="Notifikasi"
+                aria-label={t('nav.notifications')}
                 className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-line/[0.07] bg-card/70 text-ink transition hover:bg-card"
               >
                 <Bell size={17} strokeWidth={1.6} />
@@ -164,7 +162,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span className="inline-flex items-center gap-2">
             <Lock size={14} aria-hidden /> {t('nav.footer_jwt')}
           </span>
-          <span>ReqLint v1.0 · Arsitektur Terintegrasi</span>
+          <span>ReqLint v1.0 · {t('nav.architecture')}</span>
         </footer>
       </div>
     </div>

@@ -3,10 +3,12 @@
 import React, { useEffect, useState } from 'react';
 import { checkBackendHealth } from '@/lib/api';
 import { Server, RefreshCw } from 'lucide-react';
+import { useT } from '@/lib/i18n';
 
 export function BackendHealthBadge() {
   const [status, setStatus] = useState<'checking' | 'online' | 'offline'>('checking');
   const [checking, setChecking] = useState(false);
+  const t = useT();
 
   const check = async () => {
     setChecking(true);
@@ -27,8 +29,8 @@ export function BackendHealthBadge() {
       onClick={check}
       title={
         status === 'online'
-          ? 'FastAPI Backend terhubung (Port 8000). Klik untuk segarkan.'
-          : 'Backend FastAPI offline (Port 8000). Menggunakan engine browser bawaan. Klik untuk cek ulang.'
+          ? t('badge.online_title')
+          : t('badge.offline_title')
       }
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px] font-medium transition-all ${
         status === 'online'
@@ -53,7 +55,7 @@ export function BackendHealthBadge() {
         />
       </span>
       <span className="hidden sm:inline">
-        {status === 'online' ? 'FastAPI: Online' : status === 'offline' ? 'API: Offline' : 'Cek API...'}
+        {status === 'online' ? t('badge.online') : status === 'offline' ? t('badge.offline') : t('badge.checking')}
       </span>
       {checking && <RefreshCw size={11} className="animate-spin ml-0.5" />}
     </button>

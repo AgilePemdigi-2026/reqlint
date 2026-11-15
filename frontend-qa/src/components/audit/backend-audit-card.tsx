@@ -47,7 +47,7 @@ export function BackendAuditCard({ text, language }: BackendAuditCardProps) {
               </span>
             </h3>
             <p className="text-[12px] text-muted">
-              Pengecekan silang otomatis dengan model klasifikasi INVEST &amp; ISO 29148 di server backend Python.
+              Pengecekan silang otomatis dengan model klasifikasi INVEST di server backend Python.
             </p>
           </div>
         </div>
@@ -86,7 +86,7 @@ export function BackendAuditCard({ text, language }: BackendAuditCardProps) {
               <div className="rounded-xl bg-line/[0.03] p-3 text-center border border-line/[0.05]">
                 <div className="text-[11px] uppercase tracking-wider text-muted font-medium">Skor Mutu AI</div>
                 <div className="mt-1 text-2xl font-bold text-accent">{data.quality_score}</div>
-                <div className="text-[10.5px] text-muted mt-0.5">Skor ISO 29148</div>
+                <div className="text-[10.5px] text-muted mt-0.5">Skor Heuristik</div>
               </div>
 
               <div className="rounded-xl bg-line/[0.03] p-3 text-center border border-line/[0.05]">
