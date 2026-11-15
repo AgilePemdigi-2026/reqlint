@@ -149,3 +149,37 @@ describe('adaptBackendAuditToAnalysisResult — P0 result integrity', () => {
     expect(revision.result.language).toBe('en');
   });
 });
+
+describe('adaptBackendAuditToAnalysisResult — Task 06 evaluator identity/provenance', () => {
+  it('passes through evaluator identity, model version and generation status', () => {
+    const detail = makeDetail({
+      evaluator: 'traditional_ml',
+      model_version: '2.1.0-srs-hybrid',
+      generation: { provider: 'mock', model: 'template', status: 'DONE' },
+      ai_invest_notes: { negotiable: false },
+    });
+    const adapted = adaptBackendAuditToAnalysisResult(detail);
+    expect(adapted.evaluator).toBe('traditional_ml');
+    expect(adapted.modelVersion).toBe('2.1.0-srs-hybrid');
+    expect(adapted.generation?.status).toBe('DONE');
+    expect(adapted.aiInvestNotes).toEqual({ negotiable: false });
+  });
+
+  it('surfaces explicit evaluator errors (no silent fallback)', () => {
+    const detail = makeDetail({
+      status_audit: 'FAILED',
+      evaluator: 'llm',
+      evaluator_error_code: 'LLM_EVALUATOR_UNAVAILABLE',
+      evaluator_error: { code: 'LLM_EVALUATOR_UNAVAILABLE', evaluator: 'llm', message: 'mock cannot classify' },
+    });
+    const adapted = adaptBackendAuditToAnalysisResult(detail);
+    expect(adapted.evaluator).toBe('llm');
+    expect(adapted.evaluatorError?.code).toBe('LLM_EVALUATOR_UNAVAILABLE');
+  });
+
+  it('local/browser audits without evaluator metadata pass through as undefined (UI shows Rule-Based fallback)', () => {
+    const adapted = adaptBackendAuditToAnalysisResult(makeDetail());
+    expect(adapted.evaluator).toBeUndefined();
+    expect(adapted.evaluatorError).toBeNull();
+  });
+});

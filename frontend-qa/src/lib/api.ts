@@ -1,5 +1,23 @@
 import axios from 'axios';
 import { AuditResponse } from '../types/audit';
+import { translations } from './i18n';
+
+/** Task 09: fallback pesan error API mengikuti locale UI. */
+function apiMsg(key: string): string {
+  const locale = typeof window !== 'undefined' ? getUILocaleSafe() : 'id';
+  return translations[key]?.[locale] ?? translations[key]?.['id'] ?? key;
+}
+
+function getUILocaleSafe(): 'id' | 'en' {
+  try {
+    // hindari import bundling store di sisi server
+    const raw = window.localStorage.getItem('reqlint.ui_locale');
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed === 'en' ? 'en' : 'id';
+  } catch {
+    return 'id';
+  }
+}
 
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
@@ -62,21 +80,19 @@ export function extractApiError(err: unknown): { message: string; field?: string
       const data = err.response.data as BackendEnvelope;
       const firstError = data.errors?.[0];
       return {
-        message: firstError?.message || data.message || 'Terjadi kesalahan pada server.',
+        message: firstError?.message || data.message || apiMsg('api.server_error'),
         field: firstError?.field,
         errorCode: data.error_code,
       };
     }
     if (err.code === 'ECONNABORTED') {
-      return { message: 'Koneksi ke server backend batas waktu (timeout).' };
+      return { message: apiMsg('api.timeout') };
     }
     if (!err.response) {
-      return {
-        message: 'Tidak dapat terhubung ke server backend (http://localhost:8000). Pastikan server FastAPI sedang berjalan.',
-      };
+      return { message: apiMsg('api.unreachable') };
     }
   }
-  return { message: (err as Error)?.message || 'Terjadi kesalahan tidak terduga.' };
+  return { message: (err as Error)?.message || apiMsg('api.unexpected') };
 }
 
 /* ---------------- Auth API ---------------- */
@@ -153,11 +169,14 @@ export const uploadDocumentPdf = async (
 
 /* ---------------- Audits API (Tahap 2 Pipeline) ---------------- */
 
+export type EvaluatorId = 'rule_based' | 'traditional_ml' | 'llm';
+
 export interface CreateAuditPayload {
   konten: string;
   judul_klausul?: string;
   tipe_masukan?: string;
   id_dokumen?: number | null;
+  evaluator?: EvaluatorId;
 }
 
 export interface BackendAuditFinding {
@@ -185,13 +204,25 @@ export interface BackendAIRecommendation {
 }
 
 export interface BackendScorecard {
-  skor_awal: number;
+  /** Task 10: null bila evaluasi gagal (belum ada skor sah). */
+  skor_awal: number | null;
   skor_kualitas: number;
   breakdown: {
     iso_29148?: Record<string, number | null>;
     /** P0/UI-48: null = kriteria belum dievaluasi (bukan lulus). */
     invest?: Record<string, number | null>;
+    /** Task 10: kontrak evaluasi / evaluator_error juga disimpan di breakdown. */
+    [key: string]: unknown;
   };
+}
+
+export interface BackendGenerationStatus {
+  provider?: string | null;
+  model?: string | null;
+  status: 'DONE' | 'FAILED';
+  explanation?: string | null;
+  recommendation?: string | null;
+  error?: string | null;
 }
 
 export interface BackendAuditDetail {
@@ -199,6 +230,27 @@ export interface BackendAuditDetail {
   id_draf: number;
   judul_klausul: string;
   tipe_masukan: string;
+  evaluator?: EvaluatorId;
+  /** Task 10: explicit provenance — requested = pilihan pengguna,
+   * actual = evaluator yang benar-benar menghasilkan evaluasi tersimpan
+   * (null bila evaluasi gagal total). */
+  requested_evaluator?: EvaluatorId | string;
+  actual_evaluator?: EvaluatorId | string | null;
+  model_version?: string | null;
+  evaluator_error_code?: string | null;
+  evaluator_error?: { code: string; evaluator: string; message: string } | null;
+  generation?: BackendGenerationStatus | null;
+  ai_invest_notes?: Record<string, boolean> | null;
+  evaluation?: {
+    evaluator: EvaluatorId;
+    model_version?: string | null;
+    verdict: 'PASS' | 'FAIL' | 'INSUFFICIENT_EVIDENCE';
+    score?: number | null;
+    dimensions?: Record<string, { label: string; confidence?: number | null; rationale?: string | null }>;
+    assessed_dimensions?: string[];
+    invest_framework_score?: number | null;
+    metadata?: Record<string, unknown>;
+  } | null;
   status_audit: 'PROCESSING' | 'COMPLETED' | 'PARTIAL' | 'FAILED';
   stage2_status: 'PENDING' | 'PROCESSING' | 'DONE' | 'FAILED' | 'SKIPPED';
   status_revisi: 'BELUM_DIREVISI' | 'SUDAH_DIREVISI';
@@ -323,12 +375,15 @@ export const apiManualRevision = async (
 
 export const apiDownloadExport = async (
   id: number | string,
-  format: 'pdf' | 'md' | 'json'
+  format: 'pdf' | 'md' | 'json',
+  // Task 09: label laporan mengikuti locale UI ("id" | "en"); default
+  // "id" mempertahankan perilaku lama untuk pemanggil yang tidak mengirim.
+  lang: 'id' | 'en' = 'id'
 ): Promise<{ blob: Blob; filename: string }> => {
-  const response = await apiClient.get(`/audits/${id}/export?format=${format}`, {
+  const response = await apiClient.get(`/audits/${id}/export?format=${format}&lang=${lang}`, {
     responseType: 'blob',
   });
-  return { blob: response.data, filename: `audit-${id}.${format}` };
+  return { blob: response.data, filename: `reqlint-audit-${id}.${format}` };
 };
 
 /* ---------------- Forgot / Reset Password API ---------------- */

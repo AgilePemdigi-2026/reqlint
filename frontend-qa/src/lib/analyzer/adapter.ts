@@ -10,7 +10,14 @@ import type {
 } from './types';
 import { countWords, splitClauses } from './clauses';
 import { analyze, gradeFor } from './analyze';
-import type { BackendAuditDetail } from '../api';
+import type { BackendAuditDetail, EvaluatorId } from '../api';
+import { getUILocale, translations } from '../i18n';
+
+/** Task 09: catatan adapter mengikuti locale UI saat adaptasi dijalankan. */
+function noteFor(key: string): string {
+  const locale = getUILocale();
+  return translations[key]?.[locale] ?? translations[key]?.['id'] ?? key;
+}
 
 export function adaptBackendAuditToAnalysisResult(
   detail: BackendAuditDetail,
@@ -21,6 +28,23 @@ export function adaptBackendAuditToAnalysisResult(
   originalLocal: AnalysisResult;
   criteria: AcceptanceCriteria | null;
   rawDetail: BackendAuditDetail;
+  evaluator?: EvaluatorId;
+  /** Task 10: explicit provenance from the backend detail. */
+  requestedEvaluator?: EvaluatorId | string | null;
+  actualEvaluator?: EvaluatorId | string | null;
+  /** Task 10: raw evaluation contract (dimension results for ML/LLM). */
+  evaluation?: BackendAuditDetail['evaluation'];
+  modelVersion?: string | null;
+  evaluatorError?: { code: string; evaluator: string; message: string } | null;
+  generation?: {
+    provider?: string | null;
+    model?: string | null;
+    status: 'DONE' | 'FAILED';
+    explanation?: string | null;
+    recommendation?: string | null;
+    error?: string | null;
+  } | null;
+  aiInvestNotes?: Record<string, boolean> | null;
 } {
   const originalText = detail.diff?.original?.teks || '';
   const revisedText = detail.diff?.revised?.teks || detail.rekomendasi_ai?.ai_rewrite || originalText;
@@ -90,10 +114,11 @@ export function adaptBackendAuditToAnalysisResult(
       label,
       passed: state === 'pass',
       notEvaluated: state === 'unknown',
+      // Task 09: catatan INVEST dilokalkan via kamus (dulu ID statis).
       note:
         state === 'unknown'
-          ? 'Belum dievaluasi — data INVEST tidak tersedia dari backend'
-          : 'Diverifikasi model INVEST backend',
+          ? noteFor('adapter.invest_unknown')
+          : noteFor('adapter.invest_verified'),
     };
   };
   const invest: InvestCheck[] = [
@@ -108,7 +133,11 @@ export function adaptBackendAuditToAnalysisResult(
   const isoVals = Object.values(detail.scorecard?.breakdown?.iso_29148 || {}).filter(
     (v): v is number => typeof v === 'number'
   );
-  const avgIso = isoVals.length ? Math.round(isoVals.reduce((a, b) => a + b, 0) / isoVals.length) : score;
+  // Task 10: when the evaluator does not produce an ISO-style breakdown
+  // (Traditional ML / LLM store their contract instead), report null — the
+  // ML/LLM score must NOT be displayed as if it were a document-practice
+  // percentage (misleading provenance).
+  const avgIso = isoVals.length ? Math.round(isoVals.reduce((a, b) => a + b, 0) / isoVals.length) : null;
   // P0/UI-48: compliance INVEST hanya dihitung dari kriteria yang benar-benar
   // dievaluasi; null bila tidak ada sama sekali (bukan 0%, bukan 100%).
   const evaluatedInvest = invest.filter((i) => !i.notEvaluated);
@@ -156,5 +185,22 @@ export function adaptBackendAuditToAnalysisResult(
       }
     : null;
 
-  return { result, revision, originalLocal, criteria, rawDetail: detail };
+  return {
+    result,
+    revision,
+    originalLocal,
+    criteria,
+    rawDetail: detail,
+    // Task 06: evaluator identity/provenance passthrough (backend audits).
+    evaluator: detail.evaluator,
+    // Task 10: requested vs actual evaluator + the raw evaluation contract
+    // (dimension-level results are rendered from this).
+    requestedEvaluator: detail.requested_evaluator ?? detail.evaluator ?? null,
+    actualEvaluator: detail.actual_evaluator ?? null,
+    evaluation: detail.evaluation ?? null,
+    modelVersion: detail.model_version ?? null,
+    evaluatorError: detail.evaluator_error ?? null,
+    generation: detail.generation ?? null,
+    aiInvestNotes: detail.ai_invest_notes ?? null,
+  };
 }
