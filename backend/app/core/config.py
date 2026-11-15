@@ -42,8 +42,22 @@ class Settings(BaseSettings):
     SLM_PROVIDER: str = os.getenv("SLM_PROVIDER", "mock")  # mock | ollama | openai_compatible
     SLM_BASE_URL: str = os.getenv("SLM_BASE_URL", "http://localhost:11434")
     SLM_MODEL: str = os.getenv("SLM_MODEL", "phi3:mini")
-    SLM_TIMEOUT_SECONDS: int = int(os.getenv("SLM_TIMEOUT_SECONDS", "4"))
+    # Cap for real provider HTTP calls (classification + generation). The mock
+    # provider never opens a connection, so this default only affects ollama /
+    # openai_compatible backends; 4 s was too tight for real LLM latency
+    # (Task 09/GROQ diagnosis: llama-class models need ~2-10 s per call).
+    SLM_TIMEOUT_SECONDS: int = int(os.getenv("SLM_TIMEOUT_SECONDS", "20"))
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+
+    # Task 06: password-reset email delivery (feature complete pending
+    # deployment credentials; empty SMTP_HOST disables sending).
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_FROM: str = os.getenv("SMTP_FROM", "reqlint@localhost")
+    SMTP_USE_TLS: bool = os.getenv("SMTP_USE_TLS", "true").lower() in ("1", "true", "yes")
+    PUBLIC_BASE_URL: str = os.getenv("PUBLIC_BASE_URL", "http://localhost:3000")
 
     # CORS
     # Union annotation: a plain comma-separated string env value is passed through to the
