@@ -20,6 +20,9 @@ RUN python -m spacy download en_core_web_sm
 # Copy source code
 COPY backend /app/backend
 COPY ai-engine /app/ai-engine
+# Task 06: make the trained Traditional ML bundle available for genuine
+# model inference in deployment (InvestMLService loads this path).
+COPY pm-docs/rubrics/reqlint_invest_models.pkl /app/pm-docs/rubrics/reqlint_invest_models.pkl
 
 WORKDIR /app/backend
 

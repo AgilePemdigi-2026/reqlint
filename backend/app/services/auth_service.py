@@ -1,6 +1,8 @@
 import re
 import secrets
 import hashlib
+import asyncio
+import logging
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -11,6 +13,8 @@ from app.schemas.auth import RegisterRequest, LoginRequest, ForgotPasswordReques
 from app.core.security import hash_password, verify_password, dummy_verify_password, create_access_token
 from app.core.errors import AppException
 from app.core.config import settings
+
+logger = logging.getLogger("reqlint.auth_service")
 
 class AuthService:
     @staticmethod
@@ -102,9 +106,12 @@ class AuthService:
     @staticmethod
     async def forgot_password(db: AsyncSession, payload: ForgotPasswordRequest) -> None:
         """
-        Membuat token reset password.
+        Membuat token reset password dan mengirimkannya via email (Task 06).
+
         Selalu berhasil tanpa error untuk mencegah user enumeration.
-        Pada implementasi produksi, token dikirim via email.
+        - SMTP_HOST dikonfigurasi  → kirim tautan reset berisi token via SMTP.
+        - SMTP_HOST kosong        → token TIDAK dikirim (real-email delivery
+          pending deployment credentials); tidak ada token di log/respons.
         """
         stmt = select(User).where(User.alamat_email == payload.email.strip().lower())
         result = await db.execute(stmt)
@@ -127,10 +134,43 @@ class AuthService:
         db.add(reset_token)
         await db.commit()
 
-        # NOTE: Pada implementasi produksi, kirim email berisi:
-        # f"{FRONTEND_URL}/reset-password?token={raw_token}"
-        # Untuk keperluan demo/development, token disimpan di database
-        # dan bisa diakses langsung
+        if not settings.SMTP_HOST:
+            logger.warning(
+                "SMTP not configured (SMTP_HOST empty): password-reset token was "
+                "created but NOT delivered. Configure SMTP_HOST/SMTP_PORT/"
+                "SMTP_USERNAME/SMTP_PASSWORD/SMTP_FROM/PUBLIC_BASE_URL."
+            )
+            return
+
+        reset_link = f"{settings.PUBLIC_BASE_URL.rstrip('/')}/reset-password?token={raw_token}"
+        body = (
+            "Permintaan reset password ReqLint.\n\n"
+            "Buka tautan berikut untuk mengatur ulang kata sandi Anda "
+            "(berlaku 1 jam):\n"
+            f"{reset_link}\n\n"
+            "Jika Anda tidak meminta reset ini, abaikan email ini."
+        )
+        import asyncio
+        import smtplib
+        from email.message import EmailMessage
+
+        def _send() -> None:
+            msg = EmailMessage()
+            msg["Subject"] = "ReqLint — Reset Password"
+            msg["From"] = settings.SMTP_FROM
+            msg["To"] = user.alamat_email
+            msg.set_content(body)
+            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
+                if settings.SMTP_USE_TLS:
+                    smtp.starttls()
+                if settings.SMTP_USERNAME:
+                    smtp.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+                smtp.send_message(msg)
+
+        # stdlib smtplib is blocking; run it off the event loop.
+        await asyncio.to_thread(_send)
+        # Security: log delivery only — NEVER the raw token.
+        logger.info(f"Password-reset email delivered to {user.alamat_email}")
 
     @staticmethod
     async def reset_password(db: AsyncSession, payload: ResetPasswordRequest) -> None:

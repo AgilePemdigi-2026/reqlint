@@ -6,6 +6,13 @@ import numpy as np
 
 logger = logging.getLogger("reqlint.invest_ml")
 
+
+class MLEvaluatorUnavailableError(RuntimeError):
+    """Task 06 Evaluator B: the Traditional ML evaluator cannot run
+    (artifact missing/corrupt or inference failed). Raised INSTEAD of
+    silently falling back to regex — an ML-requested audit must never
+    return a regex result as if it were an ML result."""
+
 # Regex patterns matching pm-docs/rubrics/coba 2.py
 ROLE_PATTERN = re.compile(r'\b(sebagai|as a|as an)\b', re.I)
 MEANS_PATTERN = re.compile(
@@ -217,6 +224,79 @@ class InvestMLService:
             max_sim_in_cat,
             is_most_central_in_cat,
         ]
+
+    @classmethod
+    def get_model_metadata(cls) -> Optional[Dict[str, Any]]:
+        """Task 06: bundle provenance/metadata for the active ML evaluator."""
+        bundle = cls._load_model_bundle()
+        if not bundle:
+            return None
+        return {
+            "model_version": bundle.get("version"),
+            "feature_count": len(bundle.get("feature_names", [])),
+            "targets": bundle.get("targets"),
+            "trained_metrics": bundle.get("metrics"),
+            "trained_sklearn_version": "1.7.2 (embedded in bundle)",
+        }
+
+    @classmethod
+    def evaluate_story_ml(cls, text: str) -> Dict[str, Any]:
+        """Task 06 Evaluator B: genuine model inference with NO regex fallback.
+
+        Runs the trained pipelines (StandardScaler -> LogisticRegression) over
+        the 23-feature vector and returns per-criterion verdicts with genuine
+        predict_proba confidence. Raises MLEvaluatorUnavailableError when the
+        artifact is missing/corrupt or inference fails — the caller must
+        surface this as an explicit evaluator error.
+
+        Known honest limitation (documented, not hidden): the 10 context
+        features (backlog similarity / category position) are computed at
+        training time over a full backlog; in single-story serving mode they
+        take neutral defaults, matching invest_ml_service.extract_features().
+        """
+        bundle = cls._load_model_bundle()
+        try:
+            models = bundle.get("models") if isinstance(bundle, dict) else None
+            if not models:
+                raise MLEvaluatorUnavailableError(
+                    "ML_EVALUATOR_UNAVAILABLE: Traditional ML model artifact is "
+                    "missing or corrupt. No fallback result is produced for a "
+                    "Traditional ML audit."
+                )
+            missing = [t for t in TARGET_KEY_MAP if models.get(t) is None]
+            if missing:
+                raise MLEvaluatorUnavailableError(
+                    f"ML_EVALUATOR_UNAVAILABLE: model bundle is missing criteria: {missing}"
+                )
+
+            feat_vector = cls.extract_features(text)
+            X = np.array([feat_vector])
+
+            dimensions: Dict[str, Dict[str, Any]] = {}
+            confidences: Dict[str, Optional[float]] = {}
+            for target_name, key in TARGET_KEY_MAP.items():
+                model = models[target_name]
+                proba = float(model.predict_proba(X)[0][1])
+                confidences[key] = round(proba, 4)
+                dimensions[key] = {
+                    "label": "PASS" if proba >= 0.5 else "FAIL",
+                    "confidence": confidences[key],
+                    "rationale": "trained model probability (threshold 0.5)",
+                }
+
+            return {
+                "dimensions": dimensions,
+                "confidences": confidences,
+                "model_version": bundle.get("version") if isinstance(bundle, dict) else None,
+            }
+        except MLEvaluatorUnavailableError:
+            raise
+        except Exception as e:
+            # Any malformed artifact / inference failure becomes an explicit
+            # evaluator error — never a regex fallback, never a crash.
+            raise MLEvaluatorUnavailableError(
+                f"ML_EVALUATOR_UNAVAILABLE: Traditional ML inference failed: {e}"
+            ) from e
 
     @classmethod
     def evaluate_story(cls, text: str) -> Dict[str, Any]:

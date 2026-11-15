@@ -6,6 +6,10 @@ class CreateAuditRequest(BaseModel):
     judul_klausul: Optional[str] = None
     tipe_masukan: str = Field(default="manual", description="manual atau pdf")
     id_dokumen: Optional[int] = None
+    evaluator: str = Field(
+        default="rule_based",
+        description="rule_based | traditional_ml | llm (Task 06 evaluator selection)"
+    )
 
 class ApplyAuditRequest(BaseModel):
     terapkan: List[str] = Field(..., description="['rewrite', 'acceptance_criteria']")
