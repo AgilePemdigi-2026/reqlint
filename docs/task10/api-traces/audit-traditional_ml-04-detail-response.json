@@ -1,0 +1,283 @@
+{
+  "status": 200,
+  "body": {
+    "status": "success",
+    "message": "OK",
+    "data": {
+      "id_audit": 36,
+      "id_draf": 36,
+      "judul_klausul": "T10 traditional_ml",
+      "tipe_masukan": "manual",
+      "status_audit": "COMPLETED",
+      "stage2_status": "DONE",
+      "status_revisi": "BELUM_DIREVISI",
+      "tanggal_audit": "2026-11-15T17:46:13.296629",
+      "evaluator": "traditional_ml",
+      "requested_evaluator": "traditional_ml",
+      "actual_evaluator": "traditional_ml",
+      "model_version": "2.1.0-srs-hybrid",
+      "evaluator_error_code": null,
+      "evaluator_error": null,
+      "generation": {
+        "provider": "openai_compatible",
+        "model": "openai/gpt-oss-120b",
+        "status": "DONE",
+        "explanation": "The evaluator marked the story as FAIL because it does not meet the INVEST criteria for Negotiable and Valuable. The wording \"I want to view my order status\" is very generic and leaves little room for discussion about alternatives or scope, which leads to a low confidence (8%) for Negotiable. Additionally, the story does not explain why tracking the delivery is important to the business or the customer beyond a generic statement, resulting in a low confidence (39%) for Valuable. While the story is independent, estimable, small, and testable, the lack of negotiability and clear value prevents it from being accepted as a good user story.",
+        "recommendation": "1. Clarify the business value by linking order‑status viewing to a specific goal (e.g., reducing support tickets or improving customer satisfaction). 2. Make the story more negotiable by allowing discussion of alternative ways to present status (e.g., email notifications, in‑app timeline). 3. Add explicit acceptance criteria that define the exact information shown and the conditions under which it is displayed. 4. If the functionality is large, consider splitting it into smaller stories (e.g., \"view current status\" and \"receive status updates\")."
+      },
+      "ai_invest_notes": {
+        "independent": true,
+        "negotiable": false,
+        "valuable": false,
+        "estimable": true,
+        "small": true,
+        "testable": true
+      },
+      "evaluation": {
+        "evaluator": "traditional_ml",
+        "model_version": "2.1.0-srs-hybrid",
+        "verdict": "FAIL",
+        "score": 66.7,
+        "confidence": null,
+        "dimensions": {
+          "independent": {
+            "label": "PASS",
+            "confidence": 0.9116,
+            "rationale": "trained model probability (threshold 0.5)"
+          },
+          "negotiable": {
+            "label": "FAIL",
+            "confidence": 0.0814,
+            "rationale": "trained model probability (threshold 0.5)"
+          },
+          "valuable": {
+            "label": "FAIL",
+            "confidence": 0.3929,
+            "rationale": "trained model probability (threshold 0.5)"
+          },
+          "estimable": {
+            "label": "PASS",
+            "confidence": 0.6881,
+            "rationale": "trained model probability (threshold 0.5)"
+          },
+          "small": {
+            "label": "PASS",
+            "confidence": 0.6695,
+            "rationale": "trained model probability (threshold 0.5)"
+          },
+          "testable": {
+            "label": "PASS",
+            "confidence": 0.5451,
+            "rationale": "trained model probability (threshold 0.5)"
+          }
+        },
+        "assessed_dimensions": [
+          "independent",
+          "negotiable",
+          "valuable",
+          "estimable",
+          "small",
+          "testable"
+        ],
+        "invest_framework_score": 66.7,
+        "findings": [],
+        "evidence": [],
+        "breakdown": {},
+        "metadata": {
+          "limitations": "context features (backlog similarity / category position) use neutral defaults in single-story serving mode",
+          "trained_metrics": {
+            "y_I": {
+              "acc_all": 0.7536656891495601,
+              "f1_all": 0.5245283018867924,
+              "f1_id": 0.56,
+              "f1_en": 0.48627450980392156
+            },
+            "y_N": {
+              "acc_all": 0.7820136852394917,
+              "f1_all": 0.8676557863501484,
+              "f1_id": 0.8894009216589862,
+              "f1_en": 0.8445532435740514
+            },
+            "y_V": {
+              "acc_all": 0.7732160312805474,
+              "f1_all": 0.8692220969560316,
+              "f1_id": 0.8358556461001164,
+              "f1_en": 0.9005464480874317
+            },
+            "y_E": {
+              "acc_all": 0.6598240469208211,
+              "f1_all": 0.7025641025641025,
+              "f1_id": 0.707641196013289,
+              "f1_en": 0.6971830985915493
+            },
+            "y_S": {
+              "acc_all": 0.6979472140762464,
+              "f1_all": 0.7852675469075747,
+              "f1_id": 0.7895460797799174,
+              "f1_en": 0.7808988764044944
+            },
+            "y_T": {
+              "acc_all": 0.6774193548387096,
+              "f1_all": 0.7405660377358491,
+              "f1_id": 0.7264150943396226,
+              "f1_en": 0.7547169811320755
+            }
+          }
+        }
+      },
+      "scorecard": {
+        "skor_awal": 66.7,
+        "skor_kualitas": 66.7,
+        "breakdown": {
+          "evaluation": {
+            "evaluator": "traditional_ml",
+            "model_version": "2.1.0-srs-hybrid",
+            "verdict": "FAIL",
+            "score": 66.7,
+            "confidence": null,
+            "dimensions": {
+              "independent": {
+                "label": "PASS",
+                "confidence": 0.9116,
+                "rationale": "trained model probability (threshold 0.5)"
+              },
+              "negotiable": {
+                "label": "FAIL",
+                "confidence": 0.0814,
+                "rationale": "trained model probability (threshold 0.5)"
+              },
+              "valuable": {
+                "label": "FAIL",
+                "confidence": 0.3929,
+                "rationale": "trained model probability (threshold 0.5)"
+              },
+              "estimable": {
+                "label": "PASS",
+                "confidence": 0.6881,
+                "rationale": "trained model probability (threshold 0.5)"
+              },
+              "small": {
+                "label": "PASS",
+                "confidence": 0.6695,
+                "rationale": "trained model probability (threshold 0.5)"
+              },
+              "testable": {
+                "label": "PASS",
+                "confidence": 0.5451,
+                "rationale": "trained model probability (threshold 0.5)"
+              }
+            },
+            "assessed_dimensions": [
+              "independent",
+              "negotiable",
+              "valuable",
+              "estimable",
+              "small",
+              "testable"
+            ],
+            "invest_framework_score": 66.7,
+            "findings": [],
+            "evidence": [],
+            "breakdown": {},
+            "metadata": {
+              "limitations": "context features (backlog similarity / category position) use neutral defaults in single-story serving mode",
+              "trained_metrics": {
+                "y_I": {
+                  "acc_all": 0.7536656891495601,
+                  "f1_all": 0.5245283018867924,
+                  "f1_id": 0.56,
+                  "f1_en": 0.48627450980392156
+                },
+                "y_N": {
+                  "acc_all": 0.7820136852394917,
+                  "f1_all": 0.8676557863501484,
+                  "f1_id": 0.8894009216589862,
+                  "f1_en": 0.8445532435740514
+                },
+                "y_V": {
+                  "acc_all": 0.7732160312805474,
+                  "f1_all": 0.8692220969560316,
+                  "f1_id": 0.8358556461001164,
+                  "f1_en": 0.9005464480874317
+                },
+                "y_E": {
+                  "acc_all": 0.6598240469208211,
+                  "f1_all": 0.7025641025641025,
+                  "f1_id": 0.707641196013289,
+                  "f1_en": 0.6971830985915493
+                },
+                "y_S": {
+                  "acc_all": 0.6979472140762464,
+                  "f1_all": 0.7852675469075747,
+                  "f1_id": 0.7895460797799174,
+                  "f1_en": 0.7808988764044944
+                },
+                "y_T": {
+                  "acc_all": 0.6774193548387096,
+                  "f1_all": 0.7405660377358491,
+                  "f1_id": 0.7264150943396226,
+                  "f1_en": 0.7547169811320755
+                }
+              }
+            }
+          },
+          "generation": {
+            "provider": "openai_compatible",
+            "model": "openai/gpt-oss-120b",
+            "status": "DONE",
+            "explanation": "The evaluator marked the story as FAIL because it does not meet the INVEST criteria for Negotiable and Valuable. The wording \"I want to view my order status\" is very generic and leaves little room for discussion about alternatives or scope, which leads to a low confidence (8%) for Negotiable. Additionally, the story does not explain why tracking the delivery is important to the business or the customer beyond a generic statement, resulting in a low confidence (39%) for Valuable. While the story is independent, estimable, small, and testable, the lack of negotiability and clear value prevents it from being accepted as a good user story.",
+            "recommendation": "1. Clarify the business value by linking order‑status viewing to a specific goal (e.g., reducing support tickets or improving customer satisfaction). 2. Make the story more negotiable by allowing discussion of alternative ways to present status (e.g., email notifications, in‑app timeline). 3. Add explicit acceptance criteria that define the exact information shown and the conditions under which it is displayed. 4. If the functionality is large, consider splitting it into smaller stories (e.g., \"view current status\" and \"receive status updates\")."
+          },
+          "ai_invest_notes": {
+            "independent": true,
+            "negotiable": false,
+            "valuable": false,
+            "estimable": true,
+            "small": true,
+            "testable": true
+          }
+        }
+      },
+      "ringkasan": {
+        "ambiguity": 0,
+        "tidak_lengkap": 0,
+        "weak_directive": 0,
+        "passive_voice": 0,
+        "total": 0
+      },
+      "temuan": [],
+      "rekomendasi_ai": {
+        "ai_rewrite": "As a registered customer, I want to view the real‑time status of my order within the app so that I can know exactly where my purchase is in the delivery process, reduce the need to contact support, and feel confident that my order is on track.",
+        "acceptance_criteria": [
+          {
+            "given": "the user is logged in and has at least one active order",
+            "when": "the user navigates to the Order History page and selects an order",
+            "then": "the system displays the current status (e.g., Processing, Shipped, Out for Delivery, Delivered) with a timestamp"
+          },
+          {
+            "given": "the order is in transit",
+            "when": "the user refreshes the status view",
+            "then": "the system updates the status to the latest stage and shows the estimated delivery date"
+          },
+          {
+            "given": "the order has been delivered",
+            "when": "the user views the order details",
+            "then": "the system shows a \"Delivered\" status with the delivery date and a link to provide feedback"
+          }
+        ]
+      },
+      "ai_suggestion_source": "provider",
+      "diff": {
+        "original": {
+          "teks": "As a registered customer, I want to view my order status so that I can track the delivery of my purchase.",
+          "skor": 66.7
+        },
+        "revised": {
+          "teks": "As a registered customer, I want to view the real‑time status of my order within the app so that I can know exactly where my purchase is in the delivery process, reduce the need to contact support, and feel confident that my order is on track.",
+          "skor": null
+        }
+      },
+      "notifikasi": null
+    }
+  }
+}

@@ -65,7 +65,10 @@ export interface AnalysisResult {
   score: number;
   grade: Grade;
   /** P0/UI-48: `invest` bernilai null bila tidak ada kriteria yang ter-evaluasi. */
-  compliance: { iso29148: number; invest: number | null };
+  /** Task 10: iso29148 null ketika evaluator tidak menghasilkan breakdown
+ * ISO (ML/LLM menyimpan kontrak evaluasi) — tidak boleh ditampilkan
+ * memakai skor evaluator sebagai pengganti (provenance salah). */
+  compliance: { iso29148: number | null; invest: number | null };
   invest: InvestCheck[];
 }
 

@@ -9,7 +9,9 @@ import { Popover } from '@/components/popover';
 import { useToast } from '@/components/providers';
 import { countWords, liveMarks, splitClauses, suggestTitle, type Language } from '@/lib/analyzer';
 import { createAudit, dismissTip, setDraft, useDraft, useTipDismissed } from '@/lib/audits';
-import { apiCreateAudit, uploadDocumentPdf } from '@/lib/api';
+import { apiCreateAudit, uploadDocumentPdf, type EvaluatorId } from '@/lib/api';
+import { useT } from '@/lib/i18n';
+import { EVALUATOR_OPTIONS } from '@/lib/evaluator-options';
 import { TEMPLATES } from '@/lib/templates';
 import { useFileImport } from '@/lib/use-file-import';
 import { MAX_CHARS } from '@/lib/validation';
@@ -22,8 +24,12 @@ export default function EditorPage() {
   const tipDismissed = useTipDismissed();
   const toast = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
+  const t = useT();
   const [analyzing, setAnalyzing] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  // Task 06: evaluator selection — Rule-Based default; fallback browser
+  // hanya berlaku untuk Rule-Based (metode lain tidak punya padanan lokal).
+  const [evaluator, setEvaluator] = useState<EvaluatorId>('rule_based');
 
   const { busy: localImporting, onChange: onLocalFile } = useFileImport((text) => setDraft({ ...draft, text }));
 
@@ -49,23 +55,35 @@ export default function EditorPage() {
         konten: draft.text,
         judul_klausul: suggestTitle(draft.text, draft.language),
         tipe_masukan: 'manual',
+        evaluator,
       });
 
       if (res.data?.id_audit) {
-        createAudit(draft.text, draft.language, String(res.data.id_audit));
-        toast('Draf diterima backend. Menjalankan model klasifikasi INVEST...');
+        // Task 10: simpan evaluator yang diminta pada record lokal (provenance
+        // untuk tampilan processing & riwayat).
+        createAudit(draft.text, draft.language, String(res.data.id_audit), evaluator);
+        toast(t('editor.sent_backend'));
         router.push(`/audit/${res.data.id_audit}`);
         return;
       }
     } catch (err) {
-      console.warn('Backend API gagal dihubungi, beralih ke analisis lokal:', err);
+      console.warn('Backend API gagal dihubungi:', err);
     } finally {
       setAnalyzing(false);
     }
 
-    // Fallback bila server backend tidak tersedia
+    // Task 06: fallback browser HANYA untuk Rule-Based. Traditional ML dan
+    // LLM tidak punya implementasi lokal yang setara — tampilkan error,
+    // jangan ganti evaluator secara diam-diam.
+    if (evaluator !== 'rule_based') {
+      const name = t(`evaluator.${evaluator}`);
+      toast(t('editor.needs_backend', { name }));
+      setAnalyzing(false);
+      return;
+    }
+
     const localAudit = createAudit(draft.text, draft.language);
-    toast('Menggunakan engine analisis mandiri browser.');
+    toast(t('editor.local_fallback'));
     router.push(`/audit/${localAudit.id}`);
   }
 
@@ -77,11 +95,11 @@ export default function EditorPage() {
     if (file.name.toLowerCase().endsWith('.pdf')) {
       setUploadingPdf(true);
       try {
-        toast('Mengekstraksi teks PDF di server...');
+        toast(t('editor.pdf_extracting_toast'));
         const docRes = await uploadDocumentPdf(file);
         if (docRes && docRes.teks) {
           setDraft({ ...draft, text: docRes.teks });
-          toast(`PDF "${docRes.nama_dokumen}" berhasil diekstraksi (${docRes.jumlah_karakter} karakter).`);
+          toast(t('editor.pdf_done_toast', { name: docRes.nama_dokumen, n: docRes.jumlah_karakter }));
           e.target.value = '';
           return;
         }
@@ -100,17 +118,17 @@ export default function EditorPage() {
   return (
     <>
       <PageHeader
-        crumb="Workspace / Draf Kebutuhan"
-        title="Editor User Story"
-        subtitle="Tulis atau tempel draf kebutuhan Anda. ReqLint akan mengauditnya menggunakan model INVEST & ISO 29148."
+        crumb={t('editor.crumb')}
+        title={t('editor.title')}
+        subtitle={t('editor.subtitle')}
         right={
           <span className="pill bg-line/[0.06] text-muted">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden /> Backend FastAPI Terhubung
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden /> {t('editor.backend_connected')}
           </span>
         }
       />
 
-      <section className="card overflow-visible p-5 sm:p-6" aria-label="Editor">
+      <section className="card overflow-visible p-5 sm:p-6" aria-label={t('editor.section_aria')}>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line/[0.07] pb-5">
           <Popover
             trigger={({ toggle }) => (
@@ -118,7 +136,7 @@ export default function EditorPage() {
                 type="button"
                 onClick={toggle}
                 className="btn-ghost h-9 gap-2 rounded-full px-3 text-[12.5px]"
-                aria-label="Pilih bahasa analisis"
+                aria-label={t('editor.analysis_lang_aria')}
               >
                 <Languages size={14} aria-hidden /> {LANGUAGES[draft.language]}
               </button>
@@ -149,7 +167,7 @@ export default function EditorPage() {
               accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"
               className="sr-only"
               onChange={onFileChange}
-              aria-label="Unggah berkas PDF atau teks"
+              aria-label={t('editor.upload_aria')}
               tabIndex={-1}
             />
             <button
@@ -160,11 +178,11 @@ export default function EditorPage() {
             >
               {isBusyUploading ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" aria-hidden /> Mengekstrak…
+                  <Loader2 size={16} className="animate-spin" aria-hidden /> {t('editor.extracting')}
                 </>
               ) : (
                 <>
-                  <FileUp size={16} aria-hidden /> Upload PDF
+                  <FileUp size={16} aria-hidden /> {t('editor.upload_pdf')}
                 </>
               )}
             </button>
@@ -173,22 +191,22 @@ export default function EditorPage() {
               align="right"
               trigger={({ toggle }) => (
                 <button type="button" onClick={toggle} className="btn-ghost h-11 whitespace-nowrap px-4 text-[14px]">
-                  <FileText size={16} aria-hidden /> Contoh Template <ChevronDown size={14} aria-hidden />
+                  <FileText size={16} aria-hidden /> {t('editor.templates')} <ChevronDown size={14} aria-hidden />
                 </button>
               )}
             >
               {(close) =>
-                TEMPLATES.map((t) => (
+                TEMPLATES.map((tpl) => (
                   <button
-                    key={t.id}
+                    key={tpl.id}
                     type="button"
                     className="menu-item"
                     onClick={() => {
-                      update({ text: t.text[draft.language] });
+                      update({ text: tpl.text[draft.language] });
                       close();
                     }}
                   >
-                    {t.label[draft.language]}
+                    {tpl.label[draft.language]}
                   </button>
                 ))
               }
@@ -197,31 +215,61 @@ export default function EditorPage() {
         </div>
 
         <div className="mt-5">
+          <div className="mb-3" role="radiogroup" aria-label={t('editor.evaluator_aria')}>
+            <span className="mb-2 block text-[12.5px] font-medium text-muted">{t('editor.evaluator_label')}:</span>
+            <div className="flex flex-wrap gap-2">
+              {EVALUATOR_OPTIONS.map((opt) => {
+                const id = opt.id;
+                const label = t(opt.labelKey);
+                return (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={evaluator === id}
+                  onClick={() => setEvaluator(id)}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-[13px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 ${
+                    evaluator === id
+                      ? 'border-transparent bg-btn text-btnink font-semibold'
+                      : 'border-line/25 bg-card/60 text-muted hover:text-ink hover:bg-card'
+                  }`}
+                >
+                  {evaluator === id && (
+                    <Check size={13} aria-hidden className="shrink-0" />
+                  )}
+                  {label}
+                </button>
+              );
+              })}
+            </div>
+          </div>
           <CodeEditor
             value={draft.text}
             onChange={(text) => update({ text })}
             language={draft.language}
             maxLength={MAX_CHARS}
+            ariaLabel={t('editor.editor_aria')}
+            placeholder={t('editor.placeholder')}
           />
         </div>
 
         <p className="mt-3.5 flex items-center gap-2 text-[12.5px] text-muted" aria-live="polite">
           <span className={`h-1.5 w-1.5 rounded-full ${stats.flagged ? 'bg-amber-500' : 'bg-emerald-500'}`} aria-hidden />
           {empty
-            ? 'Tulis atau tempel draf kebutuhan untuk mulai.'
+            ? t('editor.hint_empty')
             : stats.flagged
-              ? 'Istilah yang digarisbawahi mungkin tidak terukur. Jalankan analisis untuk melihat evaluasi model INVEST.'
-              : 'Belum ada istilah tidak terukur yang terdeteksi saat mengetik. Jalankan analisis untuk audit lengkap.'}
+              ? t('editor.hint_flagged')
+              : t('editor.hint_clean')}
         </p>
 
         <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3 text-[13.5px] text-muted">
             <span>
-              {stats.clauses} klausul · {stats.words} kata
+              {t('editor.clauses_count', { n: stats.clauses })} · {t('editor.words_count', { n: stats.words })}
             </span>
             <span className="h-4 w-px bg-line/10" aria-hidden />
             <span className="inline-flex items-center gap-1.5">
-              <Check size={14} aria-hidden /> Tersimpan otomatis
+              <Check size={14} aria-hidden /> {t('editor.autosaved')}
             </span>
           </div>
           <button
@@ -232,11 +280,11 @@ export default function EditorPage() {
           >
             {analyzing ? (
               <>
-                <Loader2 size={18} className="animate-spin" aria-hidden /> Menganalisis...
+                <Loader2 size={18} className="animate-spin" aria-hidden /> {t('editor.analyzing')}
               </>
             ) : (
               <>
-                Audit User Story <ArrowRight size={18} aria-hidden />
+                {t('editor.run_audit')} <ArrowRight size={18} aria-hidden />
               </>
             )}
           </button>
@@ -244,14 +292,14 @@ export default function EditorPage() {
       </section>
 
       {!tipDismissed && (
-        <aside className="card mt-5 flex items-center gap-4 rounded-[22px] px-4 py-3.5" aria-label="Tips">
+        <aside className="card mt-5 flex items-center gap-4 rounded-[22px] px-4 py-3.5" aria-label={t('editor.tip_aria')}>
           <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-line/[0.07] bg-card">
             <Lightbulb size={18} strokeWidth={1.6} aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[14.5px] font-semibold">Kebutuhan yang baik dimulai dari tiga hal.</p>
+            <p className="text-[14.5px] font-semibold">{t('editor.tip_title')}</p>
             <p className="text-[12.5px] text-muted">
-              Tentukan siapa penggunanya (Role), apa yang dibutuhkan (Action), dan mengapa itu penting (Benefit). Model AI kami membantu menyempurnakan sisanya.
+              {t('editor.tip_desc')}
             </p>
           </div>
           <a
@@ -260,12 +308,12 @@ export default function EditorPage() {
             rel="noreferrer"
             className="hidden items-center gap-1.5 whitespace-nowrap text-[12.5px] font-medium text-accent hover:underline sm:inline-flex"
           >
-            Pelajari INVEST <ArrowRight size={14} aria-hidden />
+            {t('editor.tip_learn')} <ArrowRight size={14} aria-hidden />
           </a>
           <button
             type="button"
             onClick={dismissTip}
-            aria-label="Tutup tips"
+            aria-label={t('editor.tip_close_aria')}
             className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-line/[0.06] hover:text-ink"
           >
             <X size={16} />

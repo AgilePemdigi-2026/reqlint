@@ -144,6 +144,23 @@ export default function HelpPage() {
           </div>
         </section>
 
+        {/* ── FAQ ── */}
+        <section>
+          <h2 className="mb-4 text-[15px] font-semibold">
+            {t('help.faq_title')} <span className="text-muted">({t('help.faq_on_landing')})</span>
+          </h2>
+          <div className="card p-5 text-[13.5px]">
+            <ul className="grid gap-2">
+              <li>
+                <a href="/#faq" className="font-medium text-ink underline-offset-2 hover:underline">
+                  {t('help.faq_link')} → /#faq
+                </a>
+              </li>
+              <li className="text-muted">{t('help.faq_note')}</li>
+            </ul>
+          </div>
+        </section>
+
         {/* ── CTA ── */}
         <div className="card flex flex-col items-center gap-3 px-8 py-10 text-center">
           <BookOpen size={28} className="text-accent" />

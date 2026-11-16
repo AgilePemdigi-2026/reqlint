@@ -3,6 +3,15 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+# Task 09: the developer's backend/.env now points SLM_PROVIDER at a real
+# provider (Groq). Every mocked test in this suite was written against the
+# mock provider (ai_suggestion_source == "mock", honest mock generator, ...)
+# and must stay deterministic and offline, so the suite pins the provider
+# before app.core.config is imported. Tests that exercise a real provider
+# patch settings explicitly; the live-Groq smoke check is a standalone
+# script, not part of this suite.
+os.environ["SLM_PROVIDER"] = "mock"
+
 import pytest
 import pytest_asyncio
 import asyncio

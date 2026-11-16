@@ -1,0 +1,10 @@
+{
+  "url": "/audits",
+  "method": "POST",
+  "payload": {
+    "konten": "As a registered customer, I want to view my order status so that I can track the delivery of my purchase.",
+    "judul_klausul": "T10 traditional_ml",
+    "tipe_masukan": "manual",
+    "evaluator": "traditional_ml"
+  }
+}

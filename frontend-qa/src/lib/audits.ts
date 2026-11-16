@@ -18,6 +18,9 @@ export interface Audit {
    * (null selama audit masih PROCESSING). Item lokal tidak memiliki ini. */
   backendScore?: number | null;
   backendStatus?: string | null;
+  /** Task 10: evaluator yang diminta pengguna saat membuat audit ini
+   * (provenance — dipakai untuk status processing dan riwayat). */
+  requestedEvaluator?: string | null;
 }
 
 export interface Draft {
@@ -37,7 +40,7 @@ const tipStore = createLocalStore<boolean>('reqlint.tip-dismissed', false);
 export const FIRST_SEQ = 101;
 
 /** Buat audit baru, atau pakai ulang audit terbaru bila teks & bahasa identik. */
-export function createAudit(text: string, language: Language, customId?: string): Audit {
+export function createAudit(text: string, language: Language, customId?: string, requestedEvaluator?: string): Audit {
   const all = auditsStore.get();
   const latest = all[0];
   if (latest && latest.text === text && latest.language === language && (!customId || latest.id === customId)) return latest;
@@ -49,6 +52,7 @@ export function createAudit(text: string, language: Language, customId?: string)
     title: suggestTitle(text, language),
     text,
     language,
+    requestedEvaluator: requestedEvaluator ?? null,
   };
   // Hindari duplikasi ID
   auditsStore.set([audit, ...all.filter((a) => a.id !== audit.id)]);

@@ -12,8 +12,16 @@ from app.db.models import User, DrafKebutuhan, AuditKebutuhan, TemuanCacat, Doku
 from app.schemas.audit import CreateAuditRequest, ApplyAuditRequest, RevisionAuditRequest
 from app.services.story_parser import StoryParser
 from app.services.nlp_stage1 import NLPStage1Service
-from app.services.nlp_stage2 import NLPStage2Service
+from app.services.nlp_stage2 import NLPStage2Service, LLMProviderUnavailableError
 from app.services.scoring import ScoringService
+from app.services.invest_ml_service import InvestMLService, MLEvaluatorUnavailableError
+from app.services.evaluation_contract import (
+    build_evaluation_result,
+    build_dimensions,
+    overall_verdict,
+    framework_score,
+    EVALUATORS,
+)
 
 logger = logging.getLogger("reqlint.audit_service")
 
@@ -21,8 +29,14 @@ class AuditService:
     @classmethod
     async def run_pipeline(cls, id_audit: int, db: Optional[AsyncSession] = None):
         """
-        Core audit execution pipeline (Stage 1 -> Stage 2 -> Scoring).
-        Can be invoked from Celery or BackgroundTasks / inline runner or test harness.
+        Task 06 pipeline: Evaluator dispatch -> Immutable Evaluation Result ->
+        Shared Response Generation (verdict-preserving).
+
+        The evaluator persisted on the audit row decides which evaluator runs
+        (rule_based | traditional_ml | llm). Evaluator failures fail the audit
+        explicitly — a Traditional ML audit never falls back to regex and an
+        LLM audit never falls back to mock. Generation failures preserve the
+        evaluation result (status PARTIAL, generation status recorded).
         """
         if db is not None:
             await cls._execute_pipeline(id_audit, db)
@@ -47,73 +61,220 @@ class AuditService:
             return
 
         text_to_analyze = draf.konten_revisi if draf.konten_revisi else draf.konten_asli
+        evaluator = getattr(audit, "evaluator", None) or "rule_based"
 
+        # PHASE 1 — evaluation (per-evaluator; the result is immutable from
+        # this point on: the shared generator never changes it).
         try:
-            # STAGE 1 (spaCy & rule-based)
-            stage1_result = NLPStage1Service.analyze_draft(text_to_analyze)
-            findings = stage1_result["findings"]
-            stories = stage1_result["stories"]
-
-            # Calculate Stage 1 preliminary score
-            score_calc = ScoringService.calculate_score(stories, findings)
-            stage1_score = score_calc["skor_kualitas"]
-
-            # Save Stage 1 findings
-            for f in findings:
-                temuan = TemuanCacat(
-                    id_audit=audit.id_audit,
-                    kategori_cacat=f["kategori_cacat"],
-                    potongan_teks_asli=f["potongan_teks_asli"],
-                    saran_perbaikan=f["saran_perbaikan"],
-                    severity=f["severity"],
-                    story_index=f["story_index"],
-                    highlight_start=f["highlight_start"],
-                    highlight_end=f["highlight_end"],
-                    stage=1,
-                    iso_characteristic=f.get("iso_characteristic")
-                )
-                db.add(temuan)
-
-            audit.skor_kualitas = stage1_score
-            if audit.skor_awal is None:
-                audit.skor_awal = stage1_score
-            audit.breakdown = score_calc["breakdown"]
-
+            if evaluator == "traditional_ml":
+                evaluation = await cls._evaluate_traditional_ml(audit, text_to_analyze, db)
+            elif evaluator == "llm":
+                evaluation = await cls._evaluate_llm(audit, text_to_analyze, db)
+            else:
+                evaluation = await cls._evaluate_rule_based(audit, text_to_analyze, db)
+        except (MLEvaluatorUnavailableError, LLMProviderUnavailableError) as e:
+            # Explicit evaluator failure — never silently switch evaluators.
+            # The coded error is exposed via breakdown["evaluator_error"] and
+            # detail["evaluator_error_code"]; raw error_message stays internal.
+            # Task 09: LLMProviderRequestError carries a specific code
+            # (LLM_PROVIDER_TIMEOUT, LLM_RATE_LIMITED, ...) that supersedes the
+            # generic LLM_EVALUATOR_UNAVAILABLE so the frontend can localize.
+            logger.error(f"Evaluator {evaluator} unavailable for audit {id_audit}: {e}")
+            if isinstance(e, MLEvaluatorUnavailableError):
+                code = "ML_EVALUATOR_UNAVAILABLE"
+            else:
+                code = getattr(e, "code", None) or "LLM_EVALUATOR_UNAVAILABLE"
+            breakdown = dict(audit.breakdown or {})
+            breakdown["evaluator_error"] = {"code": code, "evaluator": evaluator, "message": str(e)}
+            audit.breakdown = breakdown
+            audit.status_audit = "FAILED"
+            audit.stage2_status = "FAILED"
+            audit.error_message = str(e)
             await db.commit()
-
+            return
         except Exception as e:
-            logger.exception(f"Stage 1 failed for audit {id_audit}: {e}")
+            logger.exception(f"Evaluation failed for audit {id_audit} ({evaluator}): {e}")
+            breakdown = dict(audit.breakdown or {})
+            breakdown["evaluator_error"] = {"code": "EVALUATION_FAILED", "evaluator": evaluator, "message": str(e)}
+            audit.breakdown = breakdown
             audit.status_audit = "FAILED"
             audit.error_message = str(e)
             await db.commit()
             return
 
-        # STAGE 2 (SLM)
+        # PHASE 2 — shared response generation (verdict-preserving).
+        breakdown = dict(audit.breakdown or {})
         try:
-            stage2_result = await NLPStage2Service.run_stage2(text_to_analyze, findings)
-            audit.ai_rewrite = stage2_result.get("ai_rewrite")
-            audit.acceptance_criteria = stage2_result.get("acceptance_criteria")
-
-            # Recompute final score with INVEST results
-            # P0/UI-48: absent INVEST data stays None (unknown) — scoring must
-            # never treat missing data as "all criteria pass".
-            invest_flags = stage2_result.get("invest")
-            final_score_calc = ScoringService.calculate_score(stories, findings, invest_results=invest_flags)
-            audit.skor_kualitas = final_score_calc["skor_kualitas"]
-            audit.breakdown = final_score_calc["breakdown"]
-
+            generation = await NLPStage2Service.generate_response(
+                text_to_analyze, evaluation, stage1_findings=evaluation.get("findings")
+            )
+            audit.ai_rewrite = generation.get("ai_rewrite")
+            audit.acceptance_criteria = generation.get("acceptance_criteria")
+            breakdown["generation"] = {
+                "provider": generation.get("provider"),
+                "model": generation.get("model"),
+                "status": "DONE",
+                "explanation": generation.get("explanation"),
+                "recommendation": generation.get("recommendation"),
+            }
+            # Task 06: LLM INVEST observations are ADVISORY ONLY — they never
+            # change the evaluator's verdict, score or findings.
+            breakdown["ai_invest_notes"] = generation.get("ai_invest_observations")
             audit.status_audit = "COMPLETED"
             audit.stage2_status = "DONE"
             audit.error_message = None
-            await db.commit()
-
         except Exception as e:
-            # SAFE-2: Fallback to PARTIAL so Stage 1 remains available
-            logger.warning(f"Stage 2 failed for audit {id_audit}: {e}")
-            audit.status_audit = "PARTIAL"
+            # Generation failure: the evaluation result is PRESERVED and the
+            # failure is reported separately (PARTIAL = evaluation available,
+            # generation unavailable — for every evaluator).
+            logger.warning(f"Response generation failed for audit {id_audit}: {e}")
+            breakdown["generation"] = {
+                "provider": settings.SLM_PROVIDER,
+                "model": settings.SLM_MODEL,
+                "status": "FAILED",
+                "error": str(e),
+            }
+            breakdown["ai_invest_notes"] = None
             audit.stage2_status = "FAILED"
-            audit.error_message = str(e)
-            await db.commit()
+            audit.error_message = f"GENERATION_FAILED: {e}"
+            audit.status_audit = "PARTIAL"
+        audit.breakdown = breakdown
+        await db.commit()
+
+    # ────────────────────────────────────────────────────────────────
+    # Task 06 evaluators (each keeps its own internal mechanism; the shared
+    # contract in evaluation_contract.py normalizes the output shape).
+    # ────────────────────────────────────────────────────────────────
+
+    @classmethod
+    async def _evaluate_rule_based(cls, audit, text_to_analyze: str, db: AsyncSession) -> Dict[str, Any]:
+        """Evaluator A — Rule-Based (internal penalty-scoring preserved)."""
+        stage1_result = NLPStage1Service.analyze_draft(text_to_analyze)
+        findings = stage1_result["findings"]
+        stories = stage1_result["stories"]
+
+        score_calc = ScoringService.calculate_score(stories, findings)
+
+        for f in findings:
+            temuan = TemuanCacat(
+                id_audit=audit.id_audit,
+                kategori_cacat=f["kategori_cacat"],
+                potongan_teks_asli=f["potongan_teks_asli"],
+                saran_perbaikan=f["saran_perbaikan"],
+                severity=f["severity"],
+                story_index=f["story_index"],
+                highlight_start=f["highlight_start"],
+                highlight_end=f["highlight_end"],
+                stage=1,
+                iso_characteristic=f.get("iso_characteristic")
+            )
+            db.add(temuan)
+
+        audit.skor_kualitas = score_calc["skor_kualitas"]
+        if audit.skor_awal is None:
+            audit.skor_awal = score_calc["skor_kualitas"]
+
+        # Task 06 scoring framework: derive INVEST dimensions ONLY where the
+        # rule engine can genuinely assess them (pedoman mapping). Dimensions
+        # without rule detectors are INSUFFICIENT_EVIDENCE — never fabricated.
+        has_tidak_lengkap = any(f["kategori_cacat"] == "TIDAK_LENGKAP" for f in findings)
+        has_testability_defect = any(
+            f["kategori_cacat"] in ("AMBIGUITY", "WEAK_DIRECTIVE", "PASSIVE_VOICE")
+            for f in findings
+        )
+        labels = {
+            "independent": "INSUFFICIENT_EVIDENCE",
+            "negotiable": "INSUFFICIENT_EVIDENCE",
+            "valuable": "FAIL" if has_tidak_lengkap else "PASS",
+            "estimable": "INSUFFICIENT_EVIDENCE",
+            "small": "INSUFFICIENT_EVIDENCE",
+            "testable": "FAIL" if has_testability_defect else "PASS",
+        }
+        rationales = {
+            "independent": "EVALUATOR_UNSUPPORTED_DIMENSION",
+            "negotiable": "EVALUATOR_UNSUPPORTED_DIMENSION",
+            "valuable": "MISSING_BENEFIT findings" if has_tidak_lengkap else "NO_DEFECT_DETECTED",
+            "estimable": "EVALUATOR_UNSUPPORTED_DIMENSION",
+            "small": "EVALUATOR_UNSUPPORTED_DIMENSION",
+            "testable": "AMBIGUITY/WEAK_DIRECTIVE/PASSIVE_VOICE findings" if has_testability_defect else "NO_DEFECT_DETECTED",
+        }
+        dimensions = build_dimensions(labels, rationales=rationales)
+
+        breakdown = score_calc["breakdown"]
+        # NOTE: the contract is stored WITHOUT a nested breakdown (circular
+        # reference); scorecard.breakdown carries the ISO/INVEST structure.
+        contract = build_evaluation_result(
+            evaluator="rule_based",
+            verdict=overall_verdict(dimensions),
+            score=score_calc["skor_kualitas"],  # internal penalty mechanism preserved
+            dimensions=dimensions,
+            model_version=None,  # deterministic lexicon, no model
+            findings=findings,
+            breakdown=None,
+            metadata={
+                "note": "score = internal category-penalty mechanism (preserved); "
+                        "I/N/E/S dimensions unsupported by rule detectors (IE)",
+            },
+        )
+        breakdown["evaluation"] = contract
+        audit.breakdown = breakdown
+        await db.commit()
+        return contract
+
+    @classmethod
+    async def _evaluate_traditional_ml(cls, audit, text_to_analyze: str, db: AsyncSession) -> Dict[str, Any]:
+        """Evaluator B — Traditional ML: genuine model inference, no fallback."""
+        result = InvestMLService.evaluate_story_ml(text_to_analyze)
+        dimensions = result["dimensions"]
+
+        contract = build_evaluation_result(
+            evaluator="traditional_ml",
+            verdict=overall_verdict(dimensions),
+            score=framework_score(dimensions),  # equal-weighted over the 6 genuine dimensions
+            dimensions=dimensions,
+            model_version=result.get("model_version"),
+            findings=[],  # ML yields verdicts + confidence, not span findings (honest)
+            breakdown=None,
+            metadata={
+                "limitations": "context features (backlog similarity / category position) use "
+                               "neutral defaults in single-story serving mode",
+                "trained_metrics": (InvestMLService.get_model_metadata() or {}).get("trained_metrics"),
+            },
+        )
+
+        audit.skor_kualitas = contract["score"] if contract["score"] is not None else 0.0
+        if audit.skor_awal is None:
+            audit.skor_awal = contract["score"]
+        audit.model_version = contract["model_version"]
+        audit.breakdown = {"evaluation": contract}
+        await db.commit()
+        return contract
+
+    @classmethod
+    async def _evaluate_llm(cls, audit, text_to_analyze: str, db: AsyncSession) -> Dict[str, Any]:
+        """Evaluator C — LLM/SLM classification (real provider required)."""
+        result = await NLPStage2Service.classify_story_with_llm(text_to_analyze)
+        dimensions = result["dimensions"]
+
+        model_version = f"{result.get('provider')}/{result.get('model')}"
+        contract = build_evaluation_result(
+            evaluator="llm",
+            verdict=overall_verdict(dimensions),
+            score=framework_score(dimensions),  # equal-weighted over the 6 genuine dimensions
+            dimensions=dimensions,
+            model_version=model_version,
+            findings=[],  # LLM yields per-criterion verdicts + reasons, not span findings
+            breakdown=None,
+            metadata={"rationale_source": "per-criterion reason from the provider"},
+        )
+
+        audit.skor_kualitas = contract["score"] if contract["score"] is not None else 0.0
+        if audit.skor_awal is None:
+            audit.skor_awal = contract["score"]
+        audit.model_version = contract["model_version"]
+        audit.breakdown = {"evaluation": contract}
+        await db.commit()
+        return contract
 
     @staticmethod
     async def create_audit(db: AsyncSession, user_id: int, payload: CreateAuditRequest) -> Dict[str, Any]:
@@ -156,6 +317,17 @@ class AuditService:
         # Default title is first 60 characters
         judul = payload.judul_klausul.strip() if payload.judul_klausul and payload.judul_klausul.strip() else raw_text[:60]
 
+        # Task 06: evaluator selection (rule_based default for backward
+        # compatibility with clients that do not send the field).
+        evaluator = (payload.evaluator or "rule_based").strip().lower()
+        if evaluator not in EVALUATORS:
+            raise AppException(
+                message="Evaluator tidak valid",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                error_code="INVALID_EVALUATOR",
+                errors=[{"field": "evaluator", "message": f"evaluator harus salah satu dari {sorted(EVALUATORS)}"}]
+            )
+
         now = datetime.now(timezone.utc)
         draf = DrafKebutuhan(
             id_dokumen=payload.id_dokumen,
@@ -180,7 +352,9 @@ class AuditService:
             ai_rewrite=None,
             acceptance_criteria=None,
             breakdown=None,
-            error_message=None
+            error_message=None,
+            evaluator=evaluator,
+            model_version=None
         )
         db.add(audit)
         await db.commit()
@@ -321,6 +495,23 @@ class AuditService:
             }
         }
 
+        breakdown_data = audit.breakdown or {}
+        evaluation_contract = breakdown_data.get("evaluation") or {}
+
+        # Task 10 Phase 2: explicit evaluator provenance. The audit row's
+        # `evaluator` is the REQUESTED evaluator and is preserved verbatim even
+        # on failure (never overwritten by a fallback). `actual_evaluator` is
+        # the evaluator that produced the persisted evaluation contract —
+        # null when no evaluation result exists (e.g. FAILED audits), so a
+        # failed evaluation can never masquerade as a successful one.
+        requested_evaluator = getattr(audit, "evaluator", None) or "rule_based"
+        if evaluation_contract.get("evaluator"):
+            actual_evaluator = evaluation_contract["evaluator"]
+        elif audit.status_audit == "FAILED":
+            actual_evaluator = None
+        else:
+            actual_evaluator = requested_evaluator
+
         return {
             "id_audit": audit.id_audit,
             "id_draf": draf.id_draf,
@@ -330,6 +521,15 @@ class AuditService:
             "stage2_status": audit.stage2_status,
             "status_revisi": draf.status_revisi,
             "tanggal_audit": audit.tanggal_audit.isoformat() if audit.tanggal_audit else None,
+            "evaluator": requested_evaluator,
+            "requested_evaluator": requested_evaluator,
+            "actual_evaluator": actual_evaluator,
+            "model_version": audit.model_version,
+            "evaluator_error_code": breakdown_data.get("evaluator_error", {}).get("code"),
+            "evaluator_error": breakdown_data.get("evaluator_error"),
+            "generation": breakdown_data.get("generation"),
+            "ai_invest_notes": breakdown_data.get("ai_invest_notes"),
+            "evaluation": breakdown_data.get("evaluation"),
             "scorecard": scorecard,
             "ringkasan": ringkasan,
             "temuan": temuan_list,

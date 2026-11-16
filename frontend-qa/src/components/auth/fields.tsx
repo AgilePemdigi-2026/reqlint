@@ -2,6 +2,7 @@
 
 import { Eye, EyeOff } from 'lucide-react';
 import { useId, useState } from 'react';
+import { useT } from '@/lib/i18n';
 
 interface FieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'id'> {
   label: string;
@@ -33,6 +34,7 @@ export function TextField({ label, error, ...props }: FieldProps) {
 
 export function PasswordField({ label, error, children, ...props }: FieldProps & { children?: React.ReactNode }) {
   const id = useId();
+  const t = useT();
   const [shown, setShown] = useState(false);
   return (
     <div>
@@ -51,7 +53,7 @@ export function PasswordField({ label, error, children, ...props }: FieldProps &
         <button
           type="button"
           onClick={() => setShown((s) => !s)}
-          aria-label={shown ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+          aria-label={shown ? t('fields.hide_password') : t('fields.show_password')}
           className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted transition hover:text-ink"
         >
           {shown ? <EyeOff size={18} strokeWidth={1.6} /> : <Eye size={18} strokeWidth={1.6} />}

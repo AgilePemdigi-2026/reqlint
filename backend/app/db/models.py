@@ -61,6 +61,10 @@ class AuditKebutuhan(Base):
     breakdown = Column(JSON, nullable=True)
     error_message = Column(Text, nullable=True)
     celery_task_id = Column(String(100), nullable=True)
+    # Task 06: evaluator selection persisted on the audit row so reanalyze
+    # reuses the same evaluator and the report can display provenance.
+    evaluator = Column(String(20), nullable=False, default="rule_based", server_default="rule_based")
+    model_version = Column(String(80), nullable=True)
 
     draf = relationship("DrafKebutuhan", back_populates="audits")
     temuan = relationship("TemuanCacat", back_populates="audit", cascade="all, delete-orphan")

@@ -7,6 +7,67 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
+# Task 09: export labels follow the REQUESTED UI locale ("id" | "en"), not the
+# story language. User-authored text and backend analysis content are never
+# translated — only section headings, labels and empty-state boilerplate.
+EXPORT_LABELS: Dict[str, Dict[str, str]] = {
+    "id": {
+        "report_title": "Laporan Audit Kebutuhan",
+        "audit_id": "ID Audit",
+        "audit_date": "Tanggal Audit",
+        "audit_status": "Status Audit",
+        "revision_status": "Status Revisi",
+        "initial_score": "Skor Awal",
+        "current_score": "Skor Terkini",
+        "quality_score": "Skor Kualitas Terkini",
+        "findings_summary": "Ringkasan Temuan",
+        "incomplete": "Tidak Lengkap",
+        "total_findings": "Total Temuan",
+        "findings_list": "Daftar Temuan Cacat",
+        "col_no": "No",
+        "col_category": "Kategori",
+        "col_severity": "Severity",
+        "col_text": "Potongan Teks",
+        "col_fix": "Saran Perbaikan",
+        "no_defects": "Tidak ada cacat terdeteksi",
+        "no_findings_pdf": "Tidak ada temuan cacat",
+        "req_text_comparison": "Perbandingan Teks Kebutuhan",
+        "original_label": "Teks Orisinal:",
+        "revised_label": "Teks Revisi:",
+        "no_revision": "(Belum ada revisi)",
+    },
+    "en": {
+        "report_title": "Requirements Audit Report",
+        "audit_id": "Audit ID",
+        "audit_date": "Audit Date",
+        "audit_status": "Audit Status",
+        "revision_status": "Revision Status",
+        "initial_score": "Initial Score",
+        "current_score": "Current Score",
+        "quality_score": "Current Quality Score",
+        "findings_summary": "Findings Summary",
+        "incomplete": "Incomplete",
+        "total_findings": "Total Findings",
+        "findings_list": "Defect Findings",
+        "col_no": "No",
+        "col_category": "Category",
+        "col_severity": "Severity",
+        "col_text": "Text Excerpt",
+        "col_fix": "Suggested Fix",
+        "no_defects": "No defects detected",
+        "no_findings_pdf": "No defect findings",
+        "req_text_comparison": "Requirements Text Comparison",
+        "original_label": "Original Text:",
+        "revised_label": "Revised Text:",
+        "no_revision": "(No revision yet)",
+    },
+}
+
+
+def _labels(lang: str) -> Dict[str, str]:
+    return EXPORT_LABELS["en"] if (lang or "").lower() == "en" else EXPORT_LABELS["id"]
+
+
 class ExportService:
     @staticmethod
     def render_json(audit_detail: Dict[str, Any], konten_asli: str, konten_revisi: str) -> bytes:
@@ -29,36 +90,37 @@ class ExportService:
         return json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
 
     @staticmethod
-    def render_markdown(audit_detail: Dict[str, Any], konten_asli: str, konten_revisi: str) -> bytes:
+    def render_markdown(audit_detail: Dict[str, Any], konten_asli: str, konten_revisi: str, lang: str = "id") -> bytes:
+        L = _labels(lang)
         scorecard = audit_detail.get("scorecard") or {}
         skor_awal = scorecard.get("skor_awal", "-")
         skor_kualitas = scorecard.get("skor_kualitas", "-")
         ringkasan = audit_detail.get("ringkasan") or {}
 
         lines = [
-            f"# Laporan Audit Kebutuhan: {audit_detail['judul_klausul']}",
+            f"# {L['report_title']}: {audit_detail['judul_klausul']}",
             "",
-            f"- **ID Audit**: {audit_detail['id_audit']}",
-            f"- **Tanggal Audit**: {audit_detail.get('tanggal_audit', '-')}",
-            f"- **Status Audit**: {audit_detail.get('status_audit', '-')}",
-            f"- **Skor Awal**: {skor_awal}",
-            f"- **Skor Terkini**: {skor_kualitas}",
+            f"- **{L['audit_id']}**: {audit_detail['id_audit']}",
+            f"- **{L['audit_date']}**: {audit_detail.get('tanggal_audit', '-')}",
+            f"- **{L['audit_status']}**: {audit_detail.get('status_audit', '-')}",
+            f"- **{L['initial_score']}**: {skor_awal}",
+            f"- **{L['current_score']}**: {skor_kualitas}",
             "",
-            "## Ringkasan Temuan",
+            f"## {L['findings_summary']}",
             f"- Ambiguity: {ringkasan.get('ambiguity', 0)}",
-            f"- Tidak Lengkap: {ringkasan.get('tidak_lengkap', 0)}",
+            f"- {L['incomplete']}: {ringkasan.get('tidak_lengkap', 0)}",
             f"- Weak Directive: {ringkasan.get('weak_directive', 0)}",
             f"- Passive Voice: {ringkasan.get('passive_voice', 0)}",
-            f"- **Total Temuan**: {ringkasan.get('total', 0)}",
+            f"- **{L['total_findings']}**: {ringkasan.get('total', 0)}",
             "",
-            "## Daftar Temuan Cacat",
-            "| No | Kategori | Severity | Potongan Teks | Saran Perbaikan |",
+            f"## {L['findings_list']}",
+            f"| {L['col_no']} | {L['col_category']} | {L['col_severity']} | {L['col_text']} | {L['col_fix']} |",
             "|---|---|---|---|---|"
         ]
 
         temuan = audit_detail.get("temuan") or []
         if not temuan:
-            lines.append("| - | Tidak ada cacat terdeteksi | - | - | - |")
+            lines.append(f"| - | {L['no_defects']} | - | - | - |")
         else:
             for i, t in enumerate(temuan, 1):
                 clean_saran = t.get('saran_perbaikan', '').replace("|", "\\|")
@@ -66,12 +128,12 @@ class ExportService:
 
         lines.extend([
             "",
-            "## Perbandingan Teks",
-            "### Teks Orisinal",
+            f"## {L['req_text_comparison']}",
+            f"### {L['original_label'].rstrip(':')}",
             f"> {konten_asli}",
             "",
-            "### Teks Revisi",
-            f"> {konten_revisi if konten_revisi else '(Belum ada revisi)'}",
+            f"### {L['revised_label'].rstrip(':')}",
+            f"> {konten_revisi if konten_revisi else L['no_revision']}",
             ""
         ])
 
@@ -87,7 +149,8 @@ class ExportService:
         return "\n".join(lines).encode("utf-8")
 
     @staticmethod
-    def render_pdf(audit_detail: Dict[str, Any], konten_asli: str, konten_revisi: str) -> bytes:
+    def render_pdf(audit_detail: Dict[str, Any], konten_asli: str, konten_revisi: str, lang: str = "id") -> bytes:
+        L = _labels(lang)
         buf = io.BytesIO()
         doc = SimpleDocTemplate(buf, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
         styles = getSampleStyleSheet()
@@ -121,9 +184,9 @@ class ExportService:
         skor_kualitas = scorecard.get("skor_kualitas", "-")
 
         meta_data = [
-            ["ID Audit", str(audit_detail["id_audit"]), "Tanggal Audit", str(audit_detail.get("tanggal_audit", "-"))[:19]],
-            ["Status Audit", audit_detail.get("status_audit", "-"), "Status Revisi", audit_detail.get("status_revisi", "-")],
-            ["Skor Awal", str(skor_awal), "Skor Kualitas Terkini", str(skor_kualitas)]
+            [L["audit_id"], str(audit_detail["id_audit"]), L["audit_date"], str(audit_detail.get("tanggal_audit", "-"))[:19]],
+            [L["audit_status"], audit_detail.get("status_audit", "-"), L["revision_status"], audit_detail.get("status_revisi", "-")],
+            [L["initial_score"], str(skor_awal), L["quality_score"], str(skor_kualitas)]
         ]
         meta_table = Table(meta_data, colWidths=[110, 150, 130, 150])
         meta_table.setStyle(TableStyle([
@@ -138,11 +201,11 @@ class ExportService:
         story.append(Spacer(1, 12))
 
         # Findings Table
-        story.append(Paragraph("Daftar Temuan Cacat", h2_style))
+        story.append(Paragraph(L["findings_list"], h2_style))
         findings = audit_detail.get("temuan") or []
-        findings_data = [["Kategori", "Severity", "Teks Asli", "Saran Perbaikan"]]
+        findings_data = [[L["col_category"], L["col_severity"], L["col_text"], L["col_fix"]]]
         if not findings:
-            findings_data.append(["-", "-", "Tidak ada temuan cacat", "-"])
+            findings_data.append(["-", "-", L["no_findings_pdf"], "-"])
         else:
             for f in findings:
                 findings_data.append([
@@ -164,12 +227,12 @@ class ExportService:
         story.append(Spacer(1, 12))
 
         # Original vs Revised
-        story.append(Paragraph("Perbandingan Teks Kebutuhan", h2_style))
-        story.append(Paragraph("<b>Teks Orisinal:</b>", normal_style))
+        story.append(Paragraph(L["req_text_comparison"], h2_style))
+        story.append(Paragraph(f"<b>{L['original_label']}</b>", normal_style))
         story.append(Paragraph(konten_asli, normal_style))
         story.append(Spacer(1, 8))
-        story.append(Paragraph("<b>Teks Revisi:</b>", normal_style))
-        story.append(Paragraph(konten_revisi if konten_revisi else "(Belum ada revisi)", normal_style))
+        story.append(Paragraph(f"<b>{L['revised_label']}</b>", normal_style))
+        story.append(Paragraph(konten_revisi if konten_revisi else L["no_revision"], normal_style))
         story.append(Spacer(1, 12))
 
         # Acceptance Criteria

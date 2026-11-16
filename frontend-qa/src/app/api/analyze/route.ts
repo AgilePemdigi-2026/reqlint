@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Body harus berupa JSON yang valid.' }, { status: 400 });
   }
 
-  const parsed = analyzeRequestSchema.safeParse(body);
+  const parsed = analyzeRequestSchema('id').safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: 'Input tidak valid.', fields: fieldErrors(parsed.error) }, { status: 422 });
   }

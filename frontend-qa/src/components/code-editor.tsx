@@ -32,6 +32,8 @@ interface CodeEditorProps {
   language: Language;
   maxLength?: number;
   ariaLabel?: string;
+  /** Task 09: placeholder mengikuti locale UI (opsional). */
+  placeholder?: string;
   /** Jumlah baris minimum yang selalu ditampilkan (tinggi editor). */
   minLines?: number;
 }
@@ -47,6 +49,7 @@ export function CodeEditor({
   language,
   maxLength,
   ariaLabel = 'Editor draf kebutuhan',
+  placeholder,
   minLines = DEFAULT_MIN_LINES,
 }: CodeEditorProps) {
   const marks = useMemo(() => liveMarks(value, language), [value, language]);
@@ -93,7 +96,7 @@ export function CodeEditor({
           spellCheck={false}
           aria-label={ariaLabel}
           rows={1}
-          placeholder="Contoh: Sebagai pengguna, saya ingin … agar …"
+          placeholder={placeholder ?? 'Contoh: Sebagai pengguna, saya ingin … agar …'}
           className="editor-layer resize-none overflow-hidden border-0 bg-transparent text-ink caret-ink outline-none placeholder:text-faint"
         />
       </div>

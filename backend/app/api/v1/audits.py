@@ -163,6 +163,9 @@ async def manual_revision(
 async def export_audit(
     id_audit: int,
     format: str = Query(..., description="pdf | md | json"),
+    # Task 09: report labels follow the selected UI locale ("id" default keeps
+    # the previous behavior for existing clients).
+    lang: str = Query("id", description="Report label language: id | en"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -172,6 +175,13 @@ async def export_audit(
             message="Format tidak didukung",
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             error_code="UNSUPPORTED_FORMAT"
+        )
+    clean_lang = lang.lower().strip()
+    if clean_lang not in {"id", "en"}:
+        raise AppException(
+            message="Bahasa laporan tidak didukung",
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            error_code="UNSUPPORTED_LANG"
         )
 
     # Ownership and state check
@@ -205,11 +215,11 @@ async def export_audit(
     try:
         loop = asyncio.get_running_loop()
         if clean_format == "pdf":
-            file_bytes = await loop.run_in_executor(None, ExportService.render_pdf, audit_detail, konten_asli, konten_revisi)
+            file_bytes = await loop.run_in_executor(None, ExportService.render_pdf, audit_detail, konten_asli, konten_revisi, clean_lang)
             media_type = "application/pdf"
             ext = "pdf"
         elif clean_format == "md":
-            file_bytes = await loop.run_in_executor(None, ExportService.render_markdown, audit_detail, konten_asli, konten_revisi)
+            file_bytes = await loop.run_in_executor(None, ExportService.render_markdown, audit_detail, konten_asli, konten_revisi, clean_lang)
             media_type = "text/markdown; charset=utf-8"
             ext = "md"
         else:

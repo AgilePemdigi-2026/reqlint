@@ -1,12 +1,29 @@
 import type { Category, Grade } from './analyzer';
+import { translations, type UILocale } from './i18n';
 
-export const CATEGORY_LABEL: Record<Category, string> = {
-  ambiguity: 'Ambiguity',
-  'non-testable': 'Non-Testable',
-  incomplete: 'Tidak Lengkap',
-  'weak-directive': 'Weak Directive',
-  'passive-voice': 'Passive Voice',
-};
+/** Terjemahan langsung dari kamus i18n (fallback id → key). */
+function tr(locale: UILocale, key: string): string {
+  return translations[key]?.[locale] ?? translations[key]?.['id'] ?? key;
+}
+
+/** Task 09: label kategori temuan mengikuti locale UI (dulu ID statis). */
+export function categoryLabel(cat: Category, locale: UILocale = 'id'): string {
+  return tr(locale, `category.${cat}`);
+}
+
+/** Task 09: label kategori sebagai fungsi t() — untuk pemakaian di komponen. */
+export function categoryLabelT(cat: Category, t: (key: string) => string): string {
+  return t(`category.${cat}`);
+}
+
+/** Task 09: label grade & tagline mengikuti locale UI. */
+export function gradeLabel(grade: Grade, locale: UILocale = 'id'): string {
+  return tr(locale, `grade.${grade}`);
+}
+
+export function gradeTagline(grade: Grade, locale: UILocale = 'id'): string {
+  return tr(locale, `tagline.${grade}`);
+}
 
 /** Kelas warna pill per kategori (light + dark). */
 export const CATEGORY_STYLE: Record<Category, string> = {
@@ -17,20 +34,7 @@ export const CATEGORY_STYLE: Record<Category, string> = {
   'passive-voice': 'bg-line/[0.06] text-muted',
 };
 
-export const GRADE_LABEL: Record<Grade, string> = {
-  excellent: 'Excellent',
-  good: 'Good',
-  'needs-improvement': 'Needs Improvement',
-  poor: 'Poor',
-};
-
-export const GRADE_TAGLINE: Record<Grade, string> = {
-  excellent: 'Kebutuhan sudah jelas dan terukur.',
-  good: 'Hampir siap — poles beberapa istilah.',
-  'needs-improvement': 'Kejelasan dimulai dari kebutuhan yang baik.',
-  poor: 'Perjelas istilah utama sebelum masuk pengembangan.',
-};
-
+/** Label warna grade (light + dark). */
 export const GRADE_COLOR: Record<Grade, string> = {
   excellent: '#22a559',
   good: '#22a559',
@@ -45,6 +49,11 @@ export const GRADE_BADGE: Record<Grade, string> = {
   poor: 'bg-rose-100 text-rose-800 dark:bg-rose-400/15 dark:text-rose-300',
 };
 
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+/** Tanggal mengikuti locale UI (dulu selalu id-ID). */
+export function formatDate(iso: string, locale: UILocale = 'id'): string {
+  return new Date(iso).toLocaleDateString(locale === 'en' ? 'en-GB' : 'id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 }
