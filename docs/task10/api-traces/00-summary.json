@@ -1,0 +1,85 @@
+[
+  {
+    "id_audit": 35,
+    "requested_evaluator": "rule_based",
+    "actual_evaluator": "rule_based",
+    "status_audit": "COMPLETED",
+    "stage2_status": "DONE",
+    "evaluator_error_code": null,
+    "score": 95.0,
+    "model_version": null,
+    "findings": 1,
+    "generation_status": "DONE",
+    "generation_provider": "openai_compatible",
+    "generation_error": "",
+    "dimensions": {
+      "independent": "INSUFFICIENT_EVIDENCE",
+      "negotiable": "INSUFFICIENT_EVIDENCE",
+      "valuable": "PASS",
+      "estimable": "INSUFFICIENT_EVIDENCE",
+      "small": "INSUFFICIENT_EVIDENCE",
+      "testable": "FAIL"
+    },
+    "scorecard_breakdown_keys": [
+      "iso_29148",
+      "invest",
+      "evaluation",
+      "generation",
+      "ai_invest_notes"
+    ]
+  },
+  {
+    "id_audit": 36,
+    "requested_evaluator": "traditional_ml",
+    "actual_evaluator": "traditional_ml",
+    "status_audit": "COMPLETED",
+    "stage2_status": "DONE",
+    "evaluator_error_code": null,
+    "score": 66.7,
+    "model_version": "2.1.0-srs-hybrid",
+    "findings": 0,
+    "generation_status": "DONE",
+    "generation_provider": "openai_compatible",
+    "generation_error": "",
+    "dimensions": {
+      "independent": "PASS",
+      "negotiable": "FAIL",
+      "valuable": "FAIL",
+      "estimable": "PASS",
+      "small": "PASS",
+      "testable": "PASS"
+    },
+    "scorecard_breakdown_keys": [
+      "evaluation",
+      "generation",
+      "ai_invest_notes"
+    ]
+  },
+  {
+    "id_audit": 37,
+    "requested_evaluator": "llm",
+    "actual_evaluator": "llm",
+    "status_audit": "COMPLETED",
+    "stage2_status": "DONE",
+    "evaluator_error_code": null,
+    "score": 100.0,
+    "model_version": "openai_compatible/openai/gpt-oss-120b",
+    "findings": 0,
+    "generation_status": "DONE",
+    "generation_provider": "openai_compatible",
+    "generation_error": "",
+    "dimensions": {
+      "independent": "PASS",
+      "negotiable": "PASS",
+      "valuable": "PASS",
+      "estimable": "PASS",
+      "small": "PASS",
+      "testable": "PASS"
+    },
+    "scorecard_breakdown_keys": [
+      "evaluation",
+      "generation",
+      "ai_invest_notes"
+    ]
+  }
+]

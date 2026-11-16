@@ -58,10 +58,10 @@ function ResetPasswordForm() {
     const confirm = form.get('confirm') as string;
 
     if (password.length < 8) {
-      return setErrors({ password: 'Minimal 8 karakter' });
+      return setErrors({ password: t('reset.min_chars') });
     }
     if (password !== confirm) {
-      return setErrors({ confirm: 'Konfirmasi sandi tidak cocok' });
+      return setErrors({ confirm: t('reset.mismatch') });
     }
 
     setBusy(true);

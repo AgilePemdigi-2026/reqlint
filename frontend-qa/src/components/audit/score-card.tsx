@@ -1,6 +1,9 @@
+'use client';
+
 import { HelpCircle } from 'lucide-react';
 import type { AnalysisResult } from '@/lib/analyzer';
-import { GRADE_BADGE, GRADE_COLOR, GRADE_LABEL, GRADE_TAGLINE } from '@/lib/format';
+import { GRADE_BADGE, GRADE_COLOR, gradeLabel, gradeTagline } from '@/lib/format';
+import { useT, useUILocale } from '@/lib/i18n';
 
 export function ScoreRing({ score, color, size = 108 }: { score: number; color: string; size?: number }) {
   const stroke = 9;
@@ -31,24 +34,29 @@ export function ScoreRing({ score, color, size = 108 }: { score: number; color: 
   );
 }
 
-export function ScoreCard({ result }: { result: AnalysisResult }) {
+export function ScoreCard({ result, provenance }: { result: AnalysisResult; provenance?: string }) {
+  const t = useT();
+  const uiLocale = useUILocale();
   return (
-    <section className="card flex flex-col p-6" aria-label="Quality Scorecard">
+    <section className="card flex flex-col p-6" aria-label={t('scorecard.aria')}>
       <div className="flex items-center justify-between">
-        <h2 className="text-[16px] font-semibold">Quality Scorecard</h2>
+        <h2 className="text-[16px] font-semibold">{t('scorecard.aria')}</h2>
         <span
           className="text-muted"
-          title="Skor = 100 − bobot temuan (ambiguity 14, non-testable 16, tidak lengkap 18, weak directive 10, passive 12), diredam untuk teks panjang."
+          title={t('scorecard.tooltip')}
         >
-          <HelpCircle size={16} aria-label="Cara menghitung skor" />
+          <HelpCircle size={16} aria-label={t('scorecard.how_aria')} />
         </span>
       </div>
-      <div className="flex flex-1 flex-col items-center justify-center py-5" role="img" aria-label={`Skor ${result.score} dari 100`}>
+      <div className="flex flex-1 flex-col items-center justify-center py-5" role="img" aria-label={t('scorecard.score_aria', { n: result.score })}>
         <ScoreRing score={result.score} color={GRADE_COLOR[result.grade]} />
         <span className={`pill mt-5 ${GRADE_BADGE[result.grade]}`}>
-          <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden /> {GRADE_LABEL[result.grade]}
+          <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden /> {gradeLabel(result.grade, uiLocale)}
         </span>
-        <p className="mt-3 text-center text-[12.5px] text-muted">{GRADE_TAGLINE[result.grade]}</p>
+        <p className="mt-3 text-center text-[12.5px] text-muted">{gradeTagline(result.grade, uiLocale)}</p>
+        {/* Task 10 Phase 3: explicit score provenance — the displayed score is
+            attributed to the evaluator that actually produced it. */}
+        {provenance && <p className="mt-2 text-center text-[11.5px] text-muted">{provenance}</p>}
       </div>
     </section>
   );

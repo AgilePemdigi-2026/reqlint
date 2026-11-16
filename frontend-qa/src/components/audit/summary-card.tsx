@@ -3,7 +3,8 @@
 import { AudioLines, Check, FlaskConical, Flag, ListChecks, Minus, ScanLine, ShieldCheck, ArrowUpRight, X } from 'lucide-react';
 import { useState } from 'react';
 import { CATEGORIES, type AnalysisResult, type Category } from '@/lib/analyzer';
-import { CATEGORY_LABEL } from '@/lib/format';
+import { CATEGORY_STYLE, categoryLabelT } from '@/lib/format';
+import { useT } from '@/lib/i18n';
 
 const ICONS: Record<Category, typeof ScanLine> = {
   ambiguity: ScanLine,
@@ -27,18 +28,19 @@ function Meter({ label, value }: { label: string; value: number | null }) {
 }
 
 export function SummaryCard({ result }: { result: AnalysisResult }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const total = result.findings.length;
 
   return (
-    <section className="card flex flex-col p-6" aria-label="Ringkasan hasil analisis">
+    <section className="card flex flex-col p-6" aria-label={t('summary.title')}>
       <div className="flex items-center justify-between gap-3">
         <h2 className="flex items-center gap-2.5 text-[16px] font-semibold">
-          Ringkasan Hasil Analisis
-          <span className="pill bg-line/[0.06] px-2 py-0.5 text-[11px] text-muted">{total} temuan</span>
+          {t('summary.title')}
+          <span className="pill bg-line/[0.06] px-2 py-0.5 text-[11px] text-muted">{t('summary.findings_count', { n: total })}</span>
         </h2>
         <span className="inline-flex items-center gap-1.5 text-[12px] text-muted">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden /> Analisis selesai
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden /> {t('summary.done')}
         </span>
       </div>
 
@@ -49,9 +51,9 @@ export function SummaryCard({ result }: { result: AnalysisResult }) {
           return (
             <div key={cat} className="relative rounded-2xl border border-line/[0.06] bg-card/70 p-4">
               <Icon size={16} strokeWidth={1.6} className="text-muted" aria-hidden />
-              {n === 0 && <Check size={13} className="absolute right-3.5 top-4 text-faint" aria-label="Tidak ada temuan" />}
+              {n === 0 && <Check size={13} className="absolute right-3.5 top-4 text-faint" aria-label={t('summary.no_findings_aria')} />}
               <p className="mt-3 text-[28px] font-semibold leading-none tracking-tight">{n}</p>
-              <p className="mt-1.5 text-[12px] text-muted">{CATEGORY_LABEL[cat]}</p>
+              <p className="mt-1.5 text-[12px] text-muted">{categoryLabelT(cat, t)}</p>
             </div>
           );
         })}
@@ -60,16 +62,16 @@ export function SummaryCard({ result }: { result: AnalysisResult }) {
       <div className="mt-auto pt-5">
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/[0.07] pt-4">
           <span className="inline-flex items-center gap-2 text-[12px] text-muted">
-            <ShieldCheck size={14} aria-hidden /> Kepatuhan standar
+            <ShieldCheck size={14} aria-hidden /> {t('summary.compliance')}
           </span>
           <span className="inline-flex items-center gap-5">
-            <Meter label="ISO 29148" value={result.compliance.iso29148} />
+            <Meter label={t('summary.doc_meter')} value={result.compliance.iso29148} />
             <Meter label="INVEST" value={result.compliance.invest} />
             <button
               type="button"
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
-              aria-label="Lihat detail INVEST"
+              aria-label={t('summary.invest_detail_aria')}
               className="text-muted transition hover:text-ink"
             >
               <ArrowUpRight size={14} className={open ? 'rotate-90 transition' : 'transition'} />
@@ -91,11 +93,11 @@ export function SummaryCard({ result }: { result: AnalysisResult }) {
                   }`}
                 >
                   {c.notEvaluated ? (
-                    <Minus size={12} aria-label="Belum dievaluasi" />
+                    <Minus size={12} aria-label={t('summary.invest_unevaluated')} />
                   ) : c.passed ? (
-                    <Check size={12} aria-label="Lulus" />
+                    <Check size={12} aria-label={t('summary.invest_pass')} />
                   ) : (
-                    <X size={12} aria-label="Belum lulus" />
+                    <X size={12} aria-label={t('summary.invest_fail')} />
                   )}
                 </span>
                 <span>

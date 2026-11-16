@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Providers } from '@/components/providers';
+import { LocaleHtmlSync } from '@/components/locale-html-sync';
 
 export const metadata: Metadata = {
   title: { default: 'ReqLint — Audit Kualitas User Story', template: '%s · ReqLint' },
-  description: 'Audit kualitas User Story dengan standar ISO 29148 dan INVEST.',
+  description: 'Analisis kualitas User Story dengan enam dimensi INVEST (penilaian heuristik).',
   icons: { icon: '/favicon.svg' },
 };
 
@@ -25,7 +26,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <Providers>
+          {/* Task 09: sinkronkan <html lang> dengan locale UI terpilih. */}
+          <LocaleHtmlSync />
+          {children}
+        </Providers>
       </body>
     </html>
   );

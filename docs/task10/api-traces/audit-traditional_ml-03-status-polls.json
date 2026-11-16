@@ -1,0 +1,72 @@
+[
+  {
+    "t": 3.2,
+    "status": 200,
+    "body": {
+      "status": "success",
+      "message": "OK",
+      "data": {
+        "id_audit": 36,
+        "status_audit": "PROCESSING",
+        "stage2_status": "PENDING",
+        "stage1_ready": false
+      }
+    }
+  },
+  {
+    "t": 4.2,
+    "status": 200,
+    "body": {
+      "status": "success",
+      "message": "OK",
+      "data": {
+        "id_audit": 36,
+        "status_audit": "PROCESSING",
+        "stage2_status": "PENDING",
+        "stage1_ready": true
+      }
+    }
+  },
+  {
+    "t": 5.2,
+    "status": 200,
+    "body": {
+      "status": "success",
+      "message": "OK",
+      "data": {
+        "id_audit": 36,
+        "status_audit": "PROCESSING",
+        "stage2_status": "PENDING",
+        "stage1_ready": true
+      }
+    }
+  },
+  {
+    "t": 6.2,
+    "status": 200,
+    "body": {
+      "status": "success",
+      "message": "OK",
+      "data": {
+        "id_audit": 36,
+        "status_audit": "PROCESSING",
+        "stage2_status": "PENDING",
+        "stage1_ready": true
+      }
+    }
+  },
+  {
+    "t": 7.2,
+    "status": 200,
+    "body": {
+      "status": "success",
+      "message": "OK",
+      "data": {
+        "id_audit": 36,
+        "status_audit": "COMPLETED",
+        "stage2_status": "DONE",
+        "stage1_ready": true
+      }
+    }
+  }
+]

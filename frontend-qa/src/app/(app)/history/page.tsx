@@ -9,18 +9,12 @@ import type { Category, Grade } from '@/lib/analyzer';
 import { buildHistoryRows, rowGrade, rowScore, type HistoryRow } from '@/lib/history';
 import { clearAudits, deleteAudit, syncAudits, useAudits, type Audit } from '@/lib/audits';
 import { apiGetAuditsHistory } from '@/lib/api';
-import { CATEGORY_LABEL, GRADE_BADGE, GRADE_LABEL, formatDate } from '@/lib/format';
+import { GRADE_BADGE, categoryLabelT, formatDate, gradeLabel } from '@/lib/format';
+import { useT, useUILocale } from '@/lib/i18n';
 
 type DateFilter = 'all' | 'today' | '7d' | '30d';
 type LangFilter = 'all' | 'id' | 'en';
 type SortKey = 'newest' | 'oldest' | 'score-desc' | 'score-asc';
-
-const DATE_OPTIONS: Array<{ value: DateFilter; label: string }> = [
-  { value: 'all', label: 'Semua tanggal' },
-  { value: 'today', label: 'Hari ini' },
-  { value: '7d', label: '7 hari terakhir' },
-  { value: '30d', label: '30 hari terakhir' },
-];
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -33,6 +27,8 @@ function inDateRange(iso: string, range: DateFilter): boolean {
 export default function HistoryPage() {
   const audits = useAudits();
   const toast = useToast();
+  const t = useT();
+  const uiLocale = useUILocale();
   const [query, setQuery] = useState('');
   const [dateRange, setDateRange] = useState<DateFilter>('all');
   const [grade, setGrade] = useState<Grade | 'all'>('all');
@@ -40,6 +36,14 @@ export default function HistoryPage() {
   const [category, setCategory] = useState<Category | 'all'>('all');
   const [sort, setSort] = useState<SortKey>('newest');
   const [syncing, setSyncing] = useState<boolean>(false);
+
+  // Task 09: opsi filter dwibahasa (dulu ID statis).
+  const DATE_OPTIONS: Array<{ value: DateFilter; label: string }> = [
+    { value: 'all', label: t('history.date_all') },
+    { value: 'today', label: t('history.date_today') },
+    { value: '7d', label: t('history.date_7d') },
+    { value: '30d', label: t('history.date_30d') },
+  ];
 
   // Mengambil dan menyinkronkan riwayat dari backend FastAPI secara otomatis
   useEffect(() => {
@@ -54,8 +58,8 @@ export default function HistoryPage() {
           id: String(item.id_audit),
           seq: item.id_audit,
           createdAt: item.tanggal_audit || new Date().toISOString(),
-          title: item.judul_klausul || `Audit #${item.id_audit}`,
-          text: item.judul_klausul || 'Klausul User Story',
+          title: item.judul_klausul || t('history.audit_num', { id: item.id_audit }),
+          text: item.judul_klausul || t('history.clause_fallback'),
           language: 'id',
           // P0/FUNC-06: bawa skor & status TERSIMPAN dari backend.
           backendScore: item.skor_kualitas,
@@ -73,6 +77,7 @@ export default function HistoryPage() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const activeFilters =
@@ -131,40 +136,40 @@ export default function HistoryPage() {
 
   const remove = (id: string) => {
     deleteAudit(id);
-    toast(`${id} dihapus dari riwayat.`);
+    toast(t('history.deleted', { id }));
   };
 
   const removeAll = () => {
-    if (!window.confirm('Hapus seluruh riwayat audit di browser ini? Tindakan ini tidak dapat dibatalkan.')) return;
+    if (!window.confirm(t('history.confirm_delete_all'))) return;
     clearAudits();
-    toast('Seluruh riwayat dihapus.');
+    toast(t('history.all_deleted'));
   };
 
   return (
     <>
       <PageHeader
-        crumb="Workspace / Riwayat"
-        title="History Audit"
+        crumb={t('history.crumb')}
+        title={t('history.title')}
         subtitle={
           audits.length > 0
-            ? `Menampilkan ${visible.length} dari ${audits.length} audit di akun Anda.`
-            : 'Seluruh riwayat evaluasi User Story yang pernah Anda jalankan.'
+            ? t('history.subtitle_count', { visible: visible.length, total: audits.length })
+            : t('history.subtitle_empty')
         }
         right={
           <div className="flex items-center gap-2.5">
             <label className="relative">
-              <span className="sr-only">Cari audit</span>
+              <span className="sr-only">{t('history.search_sr')}</span>
               <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" aria-hidden />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Cari ID, judul, atau isi…"
+                placeholder={t('history.search_placeholder')}
                 className="field h-10 w-[230px] rounded-full pl-10 text-[13px]"
               />
             </label>
             {audits.length > 0 && (
               <button type="button" onClick={removeAll} className="btn-ghost h-10 rounded-full px-4 text-[13px] text-rose-600 dark:text-rose-400">
-                <Trash2 size={14} aria-hidden /> Hapus semua
+                <Trash2 size={14} aria-hidden /> {t('history.delete_all')}
               </button>
             )}
           </div>
@@ -173,42 +178,42 @@ export default function HistoryPage() {
 
       {audits.length > 0 && (
         <div className="card mb-5 flex flex-wrap items-center gap-3 p-3">
-          <select aria-label="Filter tanggal" value={dateRange} onChange={(e) => setDateRange(e.target.value as DateFilter)} className="field h-10 w-auto rounded-full px-4 text-[13px]">
+          <select aria-label={t('history.filter_date_aria')} value={dateRange} onChange={(e) => setDateRange(e.target.value as DateFilter)} className="field h-10 w-auto rounded-full px-4 text-[13px]">
             {DATE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
 
-          <select aria-label="Filter grade" value={grade} onChange={(e) => setGrade(e.target.value as Grade | 'all')} className="field h-10 w-auto rounded-full px-4 text-[13px]">
-            <option value="all">Semua grade</option>
-            {(Object.keys(GRADE_LABEL) as Grade[]).map((g) => (
-              <option key={g} value={g}>{GRADE_LABEL[g]}</option>
+          <select aria-label={t('history.filter_grade_aria')} value={grade} onChange={(e) => setGrade(e.target.value as Grade | 'all')} className="field h-10 w-auto rounded-full px-4 text-[13px]">
+            <option value="all">{t('history.grade_all')}</option>
+            {(['excellent', 'good', 'needs-improvement', 'poor'] as Grade[]).map((g) => (
+              <option key={g} value={g}>{gradeLabel(g, uiLocale)}</option>
             ))}
           </select>
 
-          <select aria-label="Filter bahasa" value={lang} onChange={(e) => setLang(e.target.value as LangFilter)} className="field h-10 w-auto rounded-full px-4 text-[13px]">
-            <option value="all">Semua bahasa</option>
-            <option value="id">Indonesia</option>
-            <option value="en">English</option>
+          <select aria-label={t('history.filter_lang_aria')} value={lang} onChange={(e) => setLang(e.target.value as LangFilter)} className="field h-10 w-auto rounded-full px-4 text-[13px]">
+            <option value="all">{t('history.lang_all')}</option>
+            <option value="id">{t('history.lang_id')}</option>
+            <option value="en">{t('history.lang_en')}</option>
           </select>
 
-          <select aria-label="Filter kategori temuan" value={category} onChange={(e) => setCategory(e.target.value as Category | 'all')} className="field h-10 w-auto rounded-full px-4 text-[13px]">
-            <option value="all">Semua kategori temuan</option>
-            {(Object.keys(CATEGORY_LABEL) as Category[]).map((c) => (
-              <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>
+          <select aria-label={t('history.filter_category_aria')} value={category} onChange={(e) => setCategory(e.target.value as Category | 'all')} className="field h-10 w-auto rounded-full px-4 text-[13px]">
+            <option value="all">{t('history.category_all')}</option>
+            {(['ambiguity', 'non-testable', 'incomplete', 'weak-directive', 'passive-voice'] as Category[]).map((c) => (
+              <option key={c} value={c}>{categoryLabelT(c, t)}</option>
             ))}
           </select>
 
-          <select aria-label="Urutkan" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="field h-10 w-auto rounded-full px-4 text-[13px] sm:ml-auto">
-            <option value="newest">Terbaru</option>
-            <option value="oldest">Terlama</option>
-            <option value="score-desc">Skor tertinggi</option>
-            <option value="score-asc">Skor terendah</option>
+          <select aria-label={t('history.filter_sort_aria')} value={sort} onChange={(e) => setSort(e.target.value as SortKey)} className="field h-10 w-auto rounded-full px-4 text-[13px] sm:ml-auto">
+            <option value="newest">{t('history.sort_newest')}</option>
+            <option value="oldest">{t('history.sort_oldest')}</option>
+            <option value="score-desc">{t('history.sort_score_desc')}</option>
+            <option value="score-asc">{t('history.sort_score_asc')}</option>
           </select>
 
           {(activeFilters > 0 || query) && (
             <button type="button" onClick={resetFilters} className="btn-ghost h-10 px-4 text-[13px]">
-              <X size={14} aria-hidden /> Reset{activeFilters > 0 ? ` (${activeFilters})` : ''}
+              <X size={14} aria-hidden /> {t('history.reset')}{activeFilters > 0 ? ` (${activeFilters})` : ''}
             </button>
           )}
         </div>
@@ -217,19 +222,19 @@ export default function HistoryPage() {
       {audits.length === 0 ? (
         <div className="card flex flex-col items-center gap-3 px-8 py-16 text-center">
           <History size={30} strokeWidth={1.5} className="text-muted" aria-hidden />
-          <h2 className="text-[18px] font-semibold">Belum ada riwayat audit</h2>
+          <h2 className="text-[18px] font-semibold">{t('history.empty_title')}</h2>
           <p className="max-w-[360px] text-[14px] text-muted">
-            Jalankan analisis dari editor, hasilnya akan tersimpan di sini.
+            {t('history.empty_desc')}
           </p>
           <Link href="/editor" className="btn-primary mt-2 h-11 px-6 text-[14px]">
-            Buka editor <ArrowRight size={15} aria-hidden />
+            {t('history.open_editor')} <ArrowRight size={15} aria-hidden />
           </Link>
         </div>
       ) : visible.length === 0 ? (
         <div className="card px-8 py-12 text-center text-[14px] text-muted">
-          Tidak ada audit yang cocok dengan pencarian atau filter ini.{' '}
+          {t('history.no_match')}{' '}
           <button type="button" onClick={resetFilters} className="font-medium text-accent hover:underline">
-            Reset filter
+            {t('history.reset_filter')}
           </button>
         </div>
       ) : (
@@ -243,11 +248,11 @@ export default function HistoryPage() {
                 <p className="flex items-center gap-2.5 text-[12px] text-muted">
                   <span className="font-mono">{audit.id.startsWith('AUD-') ? audit.id : `AUD-${audit.id}`}</span>
                   <span aria-hidden>·</span>
-                  {formatDate(audit.createdAt)}
+                  {formatDate(audit.createdAt, uiLocale)}
                   <span aria-hidden>·</span>
                   {audit.language === 'en' ? 'EN' : 'ID'}
                 </p>
-                <p className="mt-1 truncate text-[15px] font-semibold">{audit.title || 'Audit User Story'}</p>
+                <p className="mt-1 truncate text-[15px] font-semibold">{audit.title || t('history.fallback_title')}</p>
                 <p className="mt-0.5 truncate text-[12.5px] text-muted">{(audit.text || audit.title || '').replace(/\s+/g, ' ')}</p>
               </Link>
 
@@ -255,34 +260,34 @@ export default function HistoryPage() {
                 <span className="text-[12.5px] text-muted">
                   {row.pendingStatus
                     ? row.pendingStatus === 'PROCESSING'
-                      ? 'Analisis sedang berjalan…'
+                      ? t('history.processing_status')
                       : row.pendingStatus === 'FAILED'
-                        ? 'Analisis gagal — skor tidak tersedia'
+                        ? t('history.failed_status')
                         : row.pendingStatus
                     : result
-                      ? `${result.findings.length} temuan`
-                      : 'Skor tersimpan dari backend'}
+                      ? t('history.findings_count', { n: result.findings.length })
+                      : t('history.score_from_backend')}
                 </span>
                 {row.pendingStatus ? (
                   // P0.1/R3-1: status, bukan skor placeholder 0.0.
                   <span className="pill bg-line/[0.06] text-muted">
-                    {row.pendingStatus === 'FAILED' ? 'Gagal' : 'Memproses'}
+                    {row.pendingStatus === 'FAILED' ? t('history.status_failed') : t('history.status_processing')}
                   </span>
                 ) : (
                   <span className={`pill ${GRADE_BADGE[grade as Grade]}`}>
-                    {rowScore(row)} · {GRADE_LABEL[grade as Grade]}
+                    {rowScore(row)} · {gradeLabel(grade as Grade, uiLocale)}
                   </span>
                 )}
               </div>
 
               <div className="flex items-center gap-1">
                 <Link href={`/audit/${audit.id}`} className="btn-ghost h-9 rounded-full px-3.5 text-[12.5px] shadow-none">
-                  Buka <ArrowRight size={13} aria-hidden />
+                  {t('history.open')} <ArrowRight size={13} aria-hidden />
                 </Link>
                 <button
                   type="button"
                   onClick={() => remove(audit.id)}
-                  aria-label={`Hapus ${audit.id}`}
+                  aria-label={t('history.delete_aria', { id: audit.id })}
                   className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-muted transition hover:bg-rose-500/10 hover:text-rose-600"
                 >
                   <Trash2 size={15} />
