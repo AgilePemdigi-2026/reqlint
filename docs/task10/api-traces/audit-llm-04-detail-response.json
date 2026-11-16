@@ -1,0 +1,197 @@
+{
+  "status": 200,
+  "body": {
+    "status": "success",
+    "message": "OK",
+    "data": {
+      "id_audit": 37,
+      "id_draf": 37,
+      "judul_klausul": "T10 llm",
+      "tipe_masukan": "manual",
+      "status_audit": "COMPLETED",
+      "stage2_status": "DONE",
+      "status_revisi": "BELUM_DIREVISI",
+      "tanggal_audit": "2026-11-15T17:46:20.598190",
+      "evaluator": "llm",
+      "requested_evaluator": "llm",
+      "actual_evaluator": "llm",
+      "model_version": "openai_compatible/openai/gpt-oss-120b",
+      "evaluator_error_code": null,
+      "evaluator_error": null,
+      "generation": {
+        "provider": "openai_compatible",
+        "model": "openai/gpt-oss-120b",
+        "status": "DONE",
+        "explanation": "The evaluator gave a PASS verdict with a perfect score because the story meets all six INVEST criteria. It is independent, describing a single capability (viewing order status) without reliance on other stories. It is negotiable, using the generic \"As a ... I want ... so that ...\" format, allowing discussion of details. It is valuable, clearly stating the benefit of tracking delivery. It is estimable, as viewing order status is a well‑understood, bounded feature. It is small, limited in scope and deliverable within one iteration. Finally, it is testable, with a straightforward test to verify that a registered customer can retrieve and see the correct order status.",
+        "recommendation": "Add explicit acceptance criteria to define the exact behavior (e.g., which status values are shown, handling of no orders, and error conditions). Consider specifying UI requirements or API endpoints to further clarify scope and aid estimation."
+      },
+      "ai_invest_notes": {
+        "independent": true,
+        "negotiable": true,
+        "valuable": true,
+        "estimable": true,
+        "small": true,
+        "testable": true
+      },
+      "evaluation": {
+        "evaluator": "llm",
+        "model_version": "openai_compatible/openai/gpt-oss-120b",
+        "verdict": "PASS",
+        "score": 100.0,
+        "confidence": null,
+        "dimensions": {
+          "independent": {
+            "label": "PASS",
+            "confidence": null,
+            "rationale": "The story describes a single capability (viewing order status) without referencing other stories, indicating it can be implemented independently."
+          },
+          "negotiable": {
+            "label": "PASS",
+            "confidence": null,
+            "rationale": "The story is expressed in the generic \"As a ... I want ... so that ...\" format with no fixed constraints, implying the details can be discussed and adjusted."
+          },
+          "valuable": {
+            "label": "PASS",
+            "confidence": null,
+            "rationale": "The benefit clause \"so that I can track the delivery of my purchase\" shows clear user value."
+          },
+          "estimable": {
+            "label": "PASS",
+            "confidence": null,
+            "rationale": "Viewing order status is a well‑understood, bounded feature, providing enough information to estimate effort."
+          },
+          "small": {
+            "label": "PASS",
+            "confidence": null,
+            "rationale": "The functionality (displaying order status) is limited in scope and can be delivered within a single iteration."
+          },
+          "testable": {
+            "label": "PASS",
+            "confidence": null,
+            "rationale": "A test can verify that a registered customer can retrieve and see the correct order status, satisfying the acceptance criteria."
+          }
+        },
+        "assessed_dimensions": [
+          "independent",
+          "negotiable",
+          "valuable",
+          "estimable",
+          "small",
+          "testable"
+        ],
+        "invest_framework_score": 100.0,
+        "findings": [],
+        "evidence": [],
+        "breakdown": {},
+        "metadata": {
+          "rationale_source": "per-criterion reason from the provider"
+        }
+      },
+      "scorecard": {
+        "skor_awal": 100.0,
+        "skor_kualitas": 100.0,
+        "breakdown": {
+          "evaluation": {
+            "evaluator": "llm",
+            "model_version": "openai_compatible/openai/gpt-oss-120b",
+            "verdict": "PASS",
+            "score": 100.0,
+            "confidence": null,
+            "dimensions": {
+              "independent": {
+                "label": "PASS",
+                "confidence": null,
+                "rationale": "The story describes a single capability (viewing order status) without referencing other stories, indicating it can be implemented independently."
+              },
+              "negotiable": {
+                "label": "PASS",
+                "confidence": null,
+                "rationale": "The story is expressed in the generic \"As a ... I want ... so that ...\" format with no fixed constraints, implying the details can be discussed and adjusted."
+              },
+              "valuable": {
+                "label": "PASS",
+                "confidence": null,
+                "rationale": "The benefit clause \"so that I can track the delivery of my purchase\" shows clear user value."
+              },
+              "estimable": {
+                "label": "PASS",
+                "confidence": null,
+                "rationale": "Viewing order status is a well‑understood, bounded feature, providing enough information to estimate effort."
+              },
+              "small": {
+                "label": "PASS",
+                "confidence": null,
+                "rationale": "The functionality (displaying order status) is limited in scope and can be delivered within a single iteration."
+              },
+              "testable": {
+                "label": "PASS",
+                "confidence": null,
+                "rationale": "A test can verify that a registered customer can retrieve and see the correct order status, satisfying the acceptance criteria."
+              }
+            },
+            "assessed_dimensions": [
+              "independent",
+              "negotiable",
+              "valuable",
+              "estimable",
+              "small",
+              "testable"
+            ],
+            "invest_framework_score": 100.0,
+            "findings": [],
+            "evidence": [],
+            "breakdown": {},
+            "metadata": {
+              "rationale_source": "per-criterion reason from the provider"
+            }
+          },
+          "generation": {
+            "provider": "openai_compatible",
+            "model": "openai/gpt-oss-120b",
+            "status": "DONE",
+            "explanation": "The evaluator gave a PASS verdict with a perfect score because the story meets all six INVEST criteria. It is independent, describing a single capability (viewing order status) without reliance on other stories. It is negotiable, using the generic \"As a ... I want ... so that ...\" format, allowing discussion of details. It is valuable, clearly stating the benefit of tracking delivery. It is estimable, as viewing order status is a well‑understood, bounded feature. It is small, limited in scope and deliverable within one iteration. Finally, it is testable, with a straightforward test to verify that a registered customer can retrieve and see the correct order status.",
+            "recommendation": "Add explicit acceptance criteria to define the exact behavior (e.g., which status values are shown, handling of no orders, and error conditions). Consider specifying UI requirements or API endpoints to further clarify scope and aid estimation."
+          },
+          "ai_invest_notes": {
+            "independent": true,
+            "negotiable": true,
+            "valuable": true,
+            "estimable": true,
+            "small": true,
+            "testable": true
+          }
+        }
+      },
+      "ringkasan": {
+        "ambiguity": 0,
+        "tidak_lengkap": 0,
+        "weak_directive": 0,
+        "passive_voice": 0,
+        "total": 0
+      },
+      "temuan": [],
+      "rekomendasi_ai": {
+        "ai_rewrite": "As a registered customer, I want to view the current status of any of my orders so that I can monitor the delivery progress of my purchases.",
+        "acceptance_criteria": [
+          {
+            "given": "a registered customer with at least one placed order",
+            "when": "the customer navigates to the order status page for a specific order",
+            "then": "the system displays the accurate, up‑to‑date status of that order (e.g., Processing, Shipped, Out for Delivery, Delivered)"
+          }
+        ]
+      },
+      "ai_suggestion_source": "provider",
+      "diff": {
+        "original": {
+          "teks": "As a registered customer, I want to view my order status so that I can track the delivery of my purchase.",
+          "skor": 100.0
+        },
+        "revised": {
+          "teks": "As a registered customer, I want to view the current status of any of my orders so that I can monitor the delivery progress of my purchases.",
+          "skor": null
+        }
+      },
+      "notifikasi": null
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "status": 202,
+  "body": {
+    "status": "success",
+    "message": "Draf diterima dan sedang dianalisis",
+    "data": {
+      "id_draf": 37,
+      "id_audit": 37,
+      "status_audit": "PROCESSING",
+      "stage2_status": "PENDING",
+      "poll_url": "/api/v1/audits/37/status"
+    }
+  }
+}

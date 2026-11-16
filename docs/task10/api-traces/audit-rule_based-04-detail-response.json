@@ -1,0 +1,254 @@
+{
+  "status": 200,
+  "body": {
+    "status": "success",
+    "message": "OK",
+    "data": {
+      "id_audit": 35,
+      "id_draf": 35,
+      "judul_klausul": "T10 rule_based",
+      "tipe_masukan": "manual",
+      "status_audit": "COMPLETED",
+      "stage2_status": "DONE",
+      "status_revisi": "BELUM_DIREVISI",
+      "tanggal_audit": "2026-11-15T17:46:10.179069",
+      "evaluator": "rule_based",
+      "requested_evaluator": "rule_based",
+      "actual_evaluator": "rule_based",
+      "model_version": null,
+      "evaluator_error_code": null,
+      "evaluator_error": null,
+      "generation": {
+        "provider": "openai_compatible",
+        "model": "openai/gpt-oss-120b",
+        "status": "DONE",
+        "explanation": "The story was marked FAIL because it contains a weak directive. The phrase \"so that I can track the delivery of my purchase\" (positions 67‑70) uses the modal verb \"can,\" which is a tentative action rather than a definite, testable outcome. The guidelines require concrete, action‑oriented language to ensure clarity and testability.",
+        "recommendation": "Replace the weak modal \"can\" with a stronger infinitive verb. For example, change \"so that I can track\" to \"so that I track\" or \"to track.\" Additionally, consider adding a bit more detail about what the customer expects to see (e.g., current status, estimated delivery date) to make the story clearer and easier to estimate."
+      },
+      "ai_invest_notes": {
+        "independent": true,
+        "negotiable": true,
+        "valuable": true,
+        "estimable": true,
+        "small": true,
+        "testable": true
+      },
+      "evaluation": {
+        "evaluator": "rule_based",
+        "model_version": null,
+        "verdict": "FAIL",
+        "score": 95.0,
+        "confidence": null,
+        "dimensions": {
+          "independent": {
+            "label": "INSUFFICIENT_EVIDENCE",
+            "confidence": null,
+            "rationale": "EVALUATOR_UNSUPPORTED_DIMENSION"
+          },
+          "negotiable": {
+            "label": "INSUFFICIENT_EVIDENCE",
+            "confidence": null,
+            "rationale": "EVALUATOR_UNSUPPORTED_DIMENSION"
+          },
+          "valuable": {
+            "label": "PASS",
+            "confidence": null,
+            "rationale": "NO_DEFECT_DETECTED"
+          },
+          "estimable": {
+            "label": "INSUFFICIENT_EVIDENCE",
+            "confidence": null,
+            "rationale": "EVALUATOR_UNSUPPORTED_DIMENSION"
+          },
+          "small": {
+            "label": "INSUFFICIENT_EVIDENCE",
+            "confidence": null,
+            "rationale": "EVALUATOR_UNSUPPORTED_DIMENSION"
+          },
+          "testable": {
+            "label": "FAIL",
+            "confidence": null,
+            "rationale": "AMBIGUITY/WEAK_DIRECTIVE/PASSIVE_VOICE findings"
+          }
+        },
+        "assessed_dimensions": [
+          "valuable",
+          "testable"
+        ],
+        "invest_framework_score": 50.0,
+        "findings": [
+          {
+            "story_index": 0,
+            "kategori_cacat": "WEAK_DIRECTIVE",
+            "severity": "MEDIUM",
+            "stage": 1,
+            "iso_characteristic": "verifiable",
+            "potongan_teks_asli": "can",
+            "highlight_start": 67,
+            "highlight_end": 70,
+            "saran_perbaikan": "Hindari kata direktif lemah; gunakan kata aksi pasti (mis. 'menampilkan', 'memvalidasi', 'display')."
+          }
+        ],
+        "evidence": [],
+        "breakdown": {},
+        "metadata": {
+          "note": "score = internal category-penalty mechanism (preserved); I/N/E/S dimensions unsupported by rule detectors (IE)"
+        }
+      },
+      "scorecard": {
+        "skor_awal": 95.0,
+        "skor_kualitas": 95.0,
+        "breakdown": {
+          "iso_29148": {
+            "unambiguous": 100,
+            "complete": 100,
+            "consistent": 90,
+            "verifiable": 80,
+            "modifiable": 80,
+            "traceable": null,
+            "ranked": null,
+            "correct": 87
+          },
+          "invest": {
+            "independent": null,
+            "negotiable": null,
+            "valuable": null,
+            "estimable": null,
+            "small": null,
+            "testable": null
+          },
+          "evaluation": {
+            "evaluator": "rule_based",
+            "model_version": null,
+            "verdict": "FAIL",
+            "score": 95.0,
+            "confidence": null,
+            "dimensions": {
+              "independent": {
+                "label": "INSUFFICIENT_EVIDENCE",
+                "confidence": null,
+                "rationale": "EVALUATOR_UNSUPPORTED_DIMENSION"
+              },
+              "negotiable": {
+                "label": "INSUFFICIENT_EVIDENCE",
+                "confidence": null,
+                "rationale": "EVALUATOR_UNSUPPORTED_DIMENSION"
+              },
+              "valuable": {
+                "label": "PASS",
+                "confidence": null,
+                "rationale": "NO_DEFECT_DETECTED"
+              },
+              "estimable": {
+                "label": "INSUFFICIENT_EVIDENCE",
+                "confidence": null,
+                "rationale": "EVALUATOR_UNSUPPORTED_DIMENSION"
+              },
+              "small": {
+                "label": "INSUFFICIENT_EVIDENCE",
+                "confidence": null,
+                "rationale": "EVALUATOR_UNSUPPORTED_DIMENSION"
+              },
+              "testable": {
+                "label": "FAIL",
+                "confidence": null,
+                "rationale": "AMBIGUITY/WEAK_DIRECTIVE/PASSIVE_VOICE findings"
+              }
+            },
+            "assessed_dimensions": [
+              "valuable",
+              "testable"
+            ],
+            "invest_framework_score": 50.0,
+            "findings": [
+              {
+                "story_index": 0,
+                "kategori_cacat": "WEAK_DIRECTIVE",
+                "severity": "MEDIUM",
+                "stage": 1,
+                "iso_characteristic": "verifiable",
+                "potongan_teks_asli": "can",
+                "highlight_start": 67,
+                "highlight_end": 70,
+                "saran_perbaikan": "Hindari kata direktif lemah; gunakan kata aksi pasti (mis. 'menampilkan', 'memvalidasi', 'display')."
+              }
+            ],
+            "evidence": [],
+            "breakdown": {},
+            "metadata": {
+              "note": "score = internal category-penalty mechanism (preserved); I/N/E/S dimensions unsupported by rule detectors (IE)"
+            }
+          },
+          "generation": {
+            "provider": "openai_compatible",
+            "model": "openai/gpt-oss-120b",
+            "status": "DONE",
+            "explanation": "The story was marked FAIL because it contains a weak directive. The phrase \"so that I can track the delivery of my purchase\" (positions 67‑70) uses the modal verb \"can,\" which is a tentative action rather than a definite, testable outcome. The guidelines require concrete, action‑oriented language to ensure clarity and testability.",
+            "recommendation": "Replace the weak modal \"can\" with a stronger infinitive verb. For example, change \"so that I can track\" to \"so that I track\" or \"to track.\" Additionally, consider adding a bit more detail about what the customer expects to see (e.g., current status, estimated delivery date) to make the story clearer and easier to estimate."
+          },
+          "ai_invest_notes": {
+            "independent": true,
+            "negotiable": true,
+            "valuable": true,
+            "estimable": true,
+            "small": true,
+            "testable": true
+          }
+        }
+      },
+      "ringkasan": {
+        "ambiguity": 0,
+        "tidak_lengkap": 0,
+        "weak_directive": 1,
+        "passive_voice": 0,
+        "total": 1
+      },
+      "temuan": [
+        {
+          "id_temuan": 77,
+          "story_index": 0,
+          "kategori_cacat": "WEAK_DIRECTIVE",
+          "severity": "MEDIUM",
+          "stage": 1,
+          "iso_characteristic": "verifiable",
+          "potongan_teks_asli": "can",
+          "highlight_start": 67,
+          "highlight_end": 70,
+          "saran_perbaikan": "Hindari kata direktif lemah; gunakan kata aksi pasti (mis. 'menampilkan', 'memvalidasi', 'display')."
+        }
+      ],
+      "rekomendasi_ai": {
+        "ai_rewrite": "As a registered customer, I want to view my order status so that I track the delivery of my purchase.",
+        "acceptance_criteria": [
+          {
+            "given": "Given a registered customer who is logged in and has at least one placed order",
+            "when": "When the customer navigates to the Order Status page",
+            "then": "Then the system displays the current status of the order and the estimated delivery date"
+          },
+          {
+            "given": "Given a registered customer with multiple orders",
+            "when": "When the customer selects a specific order from the list",
+            "then": "Then the system shows the detailed status timeline for that order"
+          },
+          {
+            "given": "Given a registered customer viewing an order that is already delivered",
+            "when": "When the order status is displayed",
+            "then": "Then the status shows \"Delivered\" and provides the delivery date"
+          }
+        ]
+      },
+      "ai_suggestion_source": "provider",
+      "diff": {
+        "original": {
+          "teks": "As a registered customer, I want to view my order status so that I can track the delivery of my purchase.",
+          "skor": 95.0
+        },
+        "revised": {
+          "teks": "As a registered customer, I want to view my order status so that I track the delivery of my purchase.",
+          "skor": null
+        }
+      },
+      "notifikasi": null
+    }
+  }
+}
