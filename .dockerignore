@@ -42,7 +42,13 @@ backend/storage
 
 # --- Docs, tests & local tooling not required inside the image ---
 docs
-pm-docs
+# pm-docs stays excluded EXCEPT the trained Traditional ML bundle, which
+# backend/Dockerfile (Task 06) COPYs into the image for genuine model
+# inference (InvestMLService loads /app/pm-docs/rubrics/reqlint_invest_models.pkl).
+pm-docs/*
+!pm-docs/rubrics
+pm-docs/rubrics/*
+!pm-docs/rubrics/reqlint_invest_models.pkl
 features
 behave.ini
 run_bdd.py
