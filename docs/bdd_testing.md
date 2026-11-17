@@ -1,5 +1,12 @@
 # 🧪 Dokumentasi Pengujian BDD (Behavior-Driven Development) ReqLint
 
+> [!NOTE]
+> **Catatan kekinian (2026-11)**: dokumen ini ditulis saat suite berisi 8 file fitur / 32 skenario.
+> Saat ini `backend/tests/bdd/` berisi **10 file fitur / 34 skenario** (plus `step_defs/`), dan
+> terdapat pula suite behave terpisah di `features/` (7 file / 48 skenario, Selenium) yang tidak
+> dijelaskan di sini. Ringkasan mutakhir: [development/testing.md](development/testing.md).
+> Angka "32 Scenarios Passed" di bawah adalah snapshot historis, bukan hasil eksekusi terkini.
+
 > **Standar Acuan**: ISO/IEC/IEEE 29148:2018 & INVEST Criteria  
 > **Framework**: `pytest-bdd` (Python 3.14+), `Gherkin`, `pytest-asyncio`, `httpx`  
 > **Status Suite**: ✅ **32 Scenarios Passed (100% Passing)**
