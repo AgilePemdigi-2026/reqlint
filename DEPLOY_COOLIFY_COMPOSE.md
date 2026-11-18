@@ -82,5 +82,9 @@ through the internal network.
   requires a rebuild (redeploy without cache).
 - If the backend is temporarily down, proxied API calls return 500s from the
   proxy; the UI shows its own connection-error messaging.
-- The INVEST ML bundle stays unloaded (rule-based fallback), matching current
-  behavior on this branch (see DEPLOY_COOLIFY.md §6).
+- The INVEST ML bundle **is shipped in the image** (Task 06: `backend/Dockerfile` COPYs it;
+  `scikit-learn==1.7.2` pinned in `backend/requirements.txt`). The build requires the scoped
+  `.dockerignore` exception from PR #25 — without it the backend build fails with
+  `"/pm-docs/rubrics/reqlint_invest_models.pkl": not found`. If the bundle were missing at
+  runtime, Traditional ML audits fail with `ML_EVALUATOR_UNAVAILABLE` (no rule-based fallback).
+  See [docs/features/traditional-ml.md](docs/features/traditional-ml.md).

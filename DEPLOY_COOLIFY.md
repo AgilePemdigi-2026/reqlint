@@ -135,10 +135,14 @@ Build artifacts (Cypress binary) are intentionally skipped in the image build.
 
 ## 6. Known limitations of this preview
 
-- The INVEST ML model bundle (`pm-docs/rubrics/reqlint_invest_models.pkl`) is not
-  loaded in the container (`joblib`/`scikit-learn` are not in the requirements); the
-  backend automatically falls back to rule-based heuristics. This matches current
-  behavior and is preserved as-is.
+- The INVEST ML model bundle (`pm-docs/rubrics/reqlint_invest_models.pkl`) **is shipped in the
+  image** since Task 06 (`COPY` in `backend/Dockerfile`; `scikit-learn==1.7.2` and `joblib` are
+  pinned in `backend/requirements.txt`). The build context must include the bundle — the scoped
+  `.dockerignore` exception (PR #25) is required, otherwise the build fails with
+  `"/pm-docs/rubrics/reqlint_invest_models.pkl": not found`. When the bundle is missing at
+  runtime, a Traditional ML audit fails with `ML_EVALUATOR_UNAVAILABLE` (no silent rule-based
+  fallback). See [docs/features/traditional-ml.md](docs/features/traditional-ml.md) and
+  [docs/deployment/docker.md](docs/deployment/docker.md).
 - Only the `en_core_web_sm` spaCy model is baked in; Indonesian analysis uses the
   lexicon/regex rules (graceful fallback, unchanged behavior).
 - SQLite inside the container is single-writer — fine for a preview, not for

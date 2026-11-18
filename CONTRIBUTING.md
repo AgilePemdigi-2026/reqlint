@@ -60,11 +60,14 @@ Jangan push langsung ke branch `main`. Selalu gunakan feature branch sesuai deng
    ```
 
 5. **Buat Pull Request (PR) di GitHub**:
-   - Buka GitHub repository `https://github.com/farhanAkbar91/reqlint`
+   - Buka GitHub repository kanonik `https://github.com/AgilePemdigi-2026/reqlint`
+     (URL lama `farhanAkbar91/reqlint` hanya redirect).
    - Buat PR dari branch Anda ke branch `main`.
    - Isi template PR dengan lengkap.
-   - Tag anggota tim penanggung jawab untuk peninjauan (Code Review).
-   - Setelah disetujui (Approved) & lolos CI, lakukan **Squash and Merge**.
+   - Tag anggota tim penanggung jawab untuk peninjauan (Code Review) — branch `main` membutuhkan
+     minimal satu approval dari reviewer dengan akses write.
+   - Setelah disetujui (Approved) & lolos CI, lakukan **Merge commit** (konvensi riwayat repositori:
+     `Merge pull request #NN …`).
 
 ---
 
@@ -73,9 +76,14 @@ Jangan push langsung ke branch `main`. Selalu gunakan feature branch sesuai deng
 Sebelum membuat PR, pastikan aplikasi dapat berjalan tanpa masalah:
 
 ```bash
-# Jalankan seluruh stack (Frontend, Backend, AI Engine)
+# Jalankan stack (Frontend + Backend + PostgreSQL + Redis; ai-engine bukan service runtime)
 docker-compose up --build
 ```
 
 - **Frontend**: `http://localhost:3000`
 - **Backend API Docs**: `http://localhost:8000/docs`
+
+> Catatan: `ai-engine/` adalah workbench Python (korpus & pipeline pelatihan), bukan service
+> runtime — backend tidak mengimpornya. Panduan lengkap:
+> [docs/getting-started/installation.md](docs/getting-started/installation.md) ·
+> [docs/deployment/docker.md](docs/deployment/docker.md).

@@ -62,7 +62,7 @@ Arsitektur terpisah (*Decoupled Micro-services*) yang modular, tangguh, dan dira
 ```mermaid
 flowchart TD
     Client["Browser / User"] -->|HTTP / HTTPS| FE["Frontend UI (Next.js 14)"]
-    FE -->|REST API (JSON)| BE["Backend API (FastAPI)"]
+    FE -->|"REST API (JSON)"| BE["Backend API (FastAPI)"]
     BE --> DB[("PostgreSQL<br>Audit History & Users")]
     BE --> Cache[("Redis Queue")]
     Cache --> Celery["Celery Background Worker"]

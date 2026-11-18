@@ -1,71 +1,175 @@
-# ReqLint: Agile User Story Quality Assurance & INVEST Linter
+# ReqLint
 
-Automated Quality Assurance & Ambiguity Detection Tool exclusively for **Agile User Stories** based on the **INVEST Criteria** (*Independent, Negotiable, Valuable, Estimable, Small, Testable*) and the **Connextra Template** (*Role - Action - Benefit*).
+ReqLint is a bilingual (Indonesian/English) **user-story quality assurance tool** for Agile teams.
+It lints draft user stories against the **INVEST criteria** (Independent, Negotiable, Valuable,
+Estimable, Small, Testable) and the **Connextra template** (*As a …, I want …, so that …*), detects
+defects derived from **ISO/IEC/IEEE 29148** quality characteristics, and produces an audit with
+scores, findings, and revision suggestions.
 
-> 📢 **Pusat Dokumentasi Terpadu**:  
-> Seluruh dokumentasi proyek, spesifikasi sistem (SRS), analisis proses bisnis (BPMN), presentasi (Pitch Deck), arsitektur, dan pedoman anotasi telah dikonsolidasikan dalam format Markdown di:  
-> 👉 **[docs/README.md](file:///d:/portfolio/AI/reqlint/docs/README.md)** | **[Laporan Proyek](file:///d:/portfolio/AI/reqlint/docs/laporan_proyek.md)**
+A user story can be evaluated by three interchangeable evaluators:
 
----
-
-## 🚀 Status Capaian Sistem
-
-| Modul / Domain | Artefak & Capaian Kunci | Status |
-|---|---|:---:|
-| **Dokumentasi Terpadu** | [docs/](file:///d:/portfolio/AI/reqlint/docs/) (SRS, BPMN, Pitch Deck, Data Mockup, Arsitektur, Pedoman INVEST) | ✅ Lengkap |
-| **Metodologi & Pedoman Anotasi** | [pedoman_anotasi_invest.md](file:///d:/portfolio/AI/reqlint/docs/pedoman_anotasi_invest.md) (v0.9) & [invest_criteria.json](file:///d:/portfolio/AI/reqlint/pm-docs/rubrics/invest_criteria.json) | ✅ Selesai |
-| **Korpus Data 1.000 User Stories** | 500 ID + 500 EN ([invest_corpus_1000.csv](file:///d:/portfolio/AI/reqlint/ai-engine/data/invest_corpus_1000.csv)) dari Dalpiaz & PPL | 🚀 Selesai |
-| **Engine Perturbasi Terkontrol** | Modul injeksi cacat ortogonal I, N, V, E, S, T ([perturbation_engine.py](file:///d:/portfolio/AI/reqlint/ai-engine/data_pipeline/perturbation_engine.py)) | ✅ Selesai |
-| **Isolasi Evaluasi (Test Set)** | 100% Cerita Alami (0% Sintetis / 0% Perturbasi pada Test Set) | ✅ Terverifikasi |
-| **Core NLP Engine Dwibahasa** | Deteksi Connextra, INVEST Smells, & Acceptance Criteria ([nlp_pipeline.py](file:///d:/portfolio/AI/reqlint/ai-engine/ai_module/nlp_pipeline.py)) | ✅ Selesai |
-| **Backend & Frontend Full-Stack** | FastAPI User Story Schema ([requirements.py](file:///d:/portfolio/AI/reqlint/backend/app/api/v1/endpoints/requirements.py)) & Next.js Editor ([RequirementEditor.tsx](file:///d:/portfolio/AI/reqlint/frontend-qa/src/components/editor/RequirementEditor.tsx)) | ✅ Siap Pakai |
-
----
-
-## 👥 Role-Based Project Workspaces (4 Team Members)
-
-Each team member has a dedicated, isolated workspace directory:
-
-| Member & Role | Workspace Directory | Documentation |
+| Evaluator | What it does | Default |
 |---|---|---|
-| **Member 1: PM & Architect** | `pm-docs/` | [docs/arsitektur_dan_integrasi.md](file:///d:/portfolio/AI/reqlint/docs/arsitektur_dan_integrasi.md) |
-| **Member 2: AI / NLP Engineer** | `ai-engine/` | [docs/pedoman_anotasi_invest.md](file:///d:/portfolio/AI/reqlint/docs/pedoman_anotasi_invest.md) |
-| **Member 3: Backend Engineer** | `backend/` | [docs/arsitektur_dan_integrasi.md](file:///d:/portfolio/AI/reqlint/docs/arsitektur_dan_integrasi.md) |
-| **Member 4: Frontend + QA Engineer** | `frontend-qa/` | [docs/mockup_data.md](file:///d:/portfolio/AI/reqlint/docs/mockup_data.md) |
+| **Rule-based** (Stage 1) | Deterministic NLP: spaCy parsing + bilingual lexicons detect ambiguity, incompleteness, weak directives, and passive voice. Always available, offline. | ✅ |
+| **Traditional ML** (Evaluator B) | Genuine scikit-learn inference: six trained logistic-regression pipelines score the six INVEST criteria with real probabilities. Requires the trained model bundle (shipped in the Docker image). | — |
+| **LLM / SLM** (Evaluator C) | Classifies the six INVEST criteria via a configurable LLM provider (Groq / Ollama / offline demo mock). Optional; needs provider configuration. | — |
 
+Transparency is a design goal: the UI always shows **which evaluator actually produced a result**
+(`requested_evaluator` vs `actual_evaluator`), the model version, and whether Stage-2 suggestions
+come from a real provider or the built-in demo mock. A requested evaluator that fails is reported
+as an explicit error — results are never silently substituted.
 
----
+## Problem statement
 
-## 🌐 Bilingual Support (Indonesian & English)
+Ambiguous and unverifiable user stories are a common source of rework in Agile projects. Issues
+such as vague adjectives ("fast", "easy"), missing benefits, weak directives ("should", "can"), and
+passive voice make a story hard to estimate and test. ReqLint moves this quality check to the left:
+drafts are linted while they are written, before they enter a sprint.
 
-ReqLint's AI engine automatically detects whether the input User Story is written in **Indonesian (`id`)** or **English (`en`)** and applies tailored NLP syntax checks, INVEST smell matchers, and Acceptance Criteria rewrites.
+## Project objectives
 
-### Example Indonesian User Story Audit
-- **Input**: *"Sebagai pembeli, saya sebaiknya dapat membayar transaksi dengan cepat."*
-- **Flaws Flagged**:
-  - `MISSING_BENEFIT_ID` (*INVEST: Valuable* - tidak ada klausa *sehingga/agar/supaya*)
-  - `WEAK_DIRECTIVE_ID` (*INVEST: Testable* - kata lemah *sebaiknya/dapat*)
-  - `SUBJECTIVE_ADJECTIVE_ID` (*INVEST: Estimable & Testable* - kata sifat tak terukur *cepat*)
-- **Suggested INVEST Rewrite**:
-  *"Sebagai pembeli, saya ingin membayar transaksi menggunakan e-wallet, sehingga pesanan segera diproses tanpa menunggu lama.<br><br>**Kriteria Penerimaan (Acceptance Criteria):**<br>- Given saldo e-wallet mencukupi<br>- When pembeli menekan tombol bayar<br>- Then sistem memproses pembayaran dalam waktu < 3 detik dan menampilkan notifikasi sukses."*
+- Detect concrete, explainable defects in user stories in both Indonesian and English.
+- Score drafts (0–100) with per-category findings and highlighted text spans.
+- Evaluate INVEST compliance with three interchangeable, honestly-labeled evaluators.
+- Keep every evaluation reproducible: evaluator provenance and model version are stored with the audit.
 
-### Example English User Story Audit
-- **Input**: *"As a buyer, I should be able to checkout easily."*
-- **Flaws Flagged**:
-  - `MISSING_BENEFIT_EN` (*INVEST: Valuable* - missing *so that* clause)
-  - `WEAK_DIRECTIVE_EN` (*INVEST: Testable* - weak modal *should*)
-  - `SUBJECTIVE_ADJECTIVE_EN` (*INVEST: Estimable & Testable* - subjective adverb *easily*)
-- **Suggested INVEST Rewrite**:
-  *"As a buyer, I want to checkout using saved payment details, so that I can complete my order in fewer than 3 clicks.<br><br>**Acceptance Criteria:**<br>- Given the buyer has a saved card<br>- When the buyer confirms the order<br>- Then checkout completes in < 2 seconds with an order ID."*
+## Implemented features
 
----
+- **Editor** with live linting (in-browser rule engine), clause/word stats, and draft templates.
+- **Three-evaluator audit pipeline** with a shared evaluation contract (equal-weighted 0–100 scoring).
+- **Stage-2 advisory generation**: verdict-preserving AI rewrite + Gherkin acceptance criteria
+  (real provider, or clearly-labeled demo mock when no provider is configured).
+- **One-click apply** of AI suggestions and manual revision, both with synchronous re-scoring.
+- **PDF/TXT/MD import** (PDF text extraction server-side, size and empty-text validation).
+- **Audit history** with search, filters, and sorting (server-side pagination).
+- **Bilingual exports** — Markdown, CSV, JSON from the UI; PDF/MD/JSON from the API.
+- **Indonesian/English UI** (501 translation keys, client-side locale switching).
+- **Accounts**: JWT auth (register, login, password reset with optional SMTP delivery).
 
-## 🚀 Running Full Stack with Docker Compose
+See [docs/features/product-overview.md](docs/features/product-overview.md) for the full,
+implementation-verified feature list — including what is partial or simulated.
 
-```bash
-docker-compose up --build
+## Architecture (high level)
+
+```mermaid
+flowchart LR
+    B["Browser<br/>Next.js frontend"] -->|same-origin /api/*| P["Next.js server<br/>rewrites or direct URL"]
+    P -->|/api/v1/*| API["FastAPI backend"]
+    API --> DB[("SQLite / PostgreSQL")]
+    API --> ML[("Trained model bundle<br/>reqlint_invest_models.pkl")]
+    API -->|optional, configurable| LLM["LLM provider<br/>Groq / Ollama / demo mock"]
 ```
 
-- **Frontend UI**: http://localhost:3000
-- **FastAPI Docs**: http://localhost:8000/docs
+The FastAPI backend owns all analysis logic. `ai-engine/` is a Python workbench (training corpora,
+pipelines, experiments) that is **not** a runtime service — see
+[docs/architecture/system-overview.md](docs/architecture/system-overview.md).
 
+## Technology stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, axios, Vitest, Cypress |
+| Backend | Python, FastAPI, SQLAlchemy 2 (async), Pydantic v2, PyJWT, bcrypt |
+| NLP / ML | spaCy (`en_core_web_sm`), scikit-learn 1.7.2, joblib, PyMuPDF, ReportLab |
+| LLM integration | Direct HTTP (httpx) to Groq (OpenAI-compatible) or Ollama; built-in demo mock |
+| Data | SQLite (default) or PostgreSQL via SQLAlchemy async; optional Redis/Celery execution mode |
+| Deployment | Docker (root build context), Docker Compose, Coolify |
+
+## Getting started
+
+Prerequisites: **Python 3.11+** and **Node.js 18+** (Docker 24+ optional).
+
+```bash
+# 1. Backend (terminal 1)
+python -m venv .venv && .venv\Scripts\activate        # Linux/macOS: source .venv/bin/activate
+pip install -r backend/requirements.txt -r ai-engine/requirements-ai.txt
+python -m spacy download en_core_web_sm
+uvicorn app.main:app --app-dir backend --reload --port 8000
+
+# 2. Frontend (terminal 2)
+cd frontend-qa
+npm ci --legacy-peer-deps
+npm run dev                                            # http://localhost:3000
+```
+
+The backend starts with SQLite (`./reqlint.db`) and runs without any LLM provider
+(`SLM_PROVIDER=mock`). The Traditional ML evaluator works out of the box when the repository
+checkout (including `pm-docs/`) is intact. Details and configuration:
+[docs/getting-started/installation.md](docs/getting-started/installation.md) ·
+[docs/getting-started/configuration.md](docs/getting-started/configuration.md).
+
+## Basic usage
+
+1. Open `http://localhost:3000`, register or use **Log in → demo account**.
+2. Write or paste a user story in the editor (Indonesian or English), choose an evaluator, and run **Audit User Story**.
+3. Review the scorecard, findings, INVEST dimension results (with confidences for ML/LLM evaluators), and the Stage-2 advisory rewrite.
+4. Apply suggestions or edit manually (the score is recalculated), then export the result.
+
+## Testing
+
+```bash
+# Backend unit/integration/API tests (119 tests, verified on this codebase)
+python -m pytest backend/tests -q
+
+# pytest-bdd suite (34 scenarios)
+python run_bdd.py
+
+# Frontend unit tests (74 Vitest cases)
+cd frontend-qa && npm test
+```
+
+BDD scenario counts and scope: [docs/development/testing.md](docs/development/testing.md).
+CI currently runs syntax compilation checks and frontend lint only — it does **not** run the test suites.
+
+## Deployment
+
+Docker images build from the **repository root** context (`backend/Dockerfile`,
+`frontend-qa/Dockerfile`). The backend image requires the trained ML bundle from
+`pm-docs/rubrics/reqlint_invest_models.pkl` to be present in the build context —
+see [docs/deployment/docker.md](docs/deployment/docker.md). Coolify guides:
+[DEPLOY_COOLIFY.md](DEPLOY_COOLIFY.md) (two applications) and
+[DEPLOY_COOLIFY_COMPOSE.md](DEPLOY_COOLIFY_COMPOSE.md) (single-domain compose stack).
+
+## Documentation
+
+| Document | Content |
+|---|---|
+| [docs/getting-started/](docs/getting-started/installation.md) | Installation, local development, configuration reference |
+| [docs/architecture/](docs/architecture/system-overview.md) | System overview, backend, frontend, database, data flow |
+| [docs/features/](docs/features/product-overview.md) | Product features, rule-based analysis, Traditional ML, LLM evaluation |
+| [docs/api/api-reference.md](docs/api/api-reference.md) | REST API reference (all endpoints, schemas, errors) |
+| [docs/development/testing.md](docs/development/testing.md) | Test suites and how to run them |
+| [docs/deployment/docker.md](docs/deployment/docker.md) | Docker build, compose, build-context requirements |
+
+Course deliverables and per-task reports (SRS, BPMN, pitch deck, annotation guideline, task 04–10
+reports) are indexed in [docs/README.md](docs/README.md).
+
+## Known limitations
+
+- **Demo mock is not AI.** Without a configured LLM provider, Stage-2 suggestions are generic
+  built-in templates, explicitly labeled in the UI. The LLM evaluator refuses to run on the mock.
+- **Traditional ML context features.** The 10 backlog-context features (similarity/category
+  position) use neutral defaults in single-story serving mode; they were computed over a full
+  backlog at training time. This limitation is stored in audit metadata.
+- **Evaluation quality varies per criterion.** Embedded training metrics of the shipped bundle
+  range from F1 ≈ 0.49–0.90 depending on criterion and language — see
+  [docs/features/traditional-ml.md](docs/features/traditional-ml.md).
+- **No independently verified security audit.** Security features (JWT, bcrypt, ownership checks,
+  fail-fast secrets) are implemented and unit-tested, but no third-party audit has been performed.
+- **Contact form is simulated** and the password-reset email is only sent when SMTP is configured.
+- **CI does not run tests**, and the Cypress E2E spec targets a UI that has been replaced.
+- **Alembic migration is behind the models**; startup uses `create_all` plus an idempotent column patch.
+
+## Project layout
+
+```
+backend/       FastAPI application (app/), tests, Dockerfile
+frontend-qa/   Next.js app (src/), unit + E2E tests, Dockerfile
+ai-engine/     Python NLP/ML workbench: corpora, training pipelines, experiments (no runtime service)
+pm-docs/       Product-management docs, annotation rubrics, INVEST datasets, trained model bundle
+docs/          Project documentation (this overhaul) + course deliverables + task reports
+features/      Behave E2E suite (Selenium) for local/full-stack runs
+```
+
+The four team workspaces (`pm-docs/`, `ai-engine/`, `backend/`, `frontend-qa/`) are described in
+[CONTRIBUTING.md](CONTRIBUTING.md).
