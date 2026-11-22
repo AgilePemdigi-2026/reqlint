@@ -535,8 +535,10 @@ def step_fe_open_page(context, route):
 def step_fe_verify_landing(context, sec1, sec2):
     assert context.frontend.current_page == "/"
     sections_file = (FRONTEND_SRC / "components" / "landing" / "sections.tsx").read_text(encoding="utf-8")
-    assert sec1 in sections_file, f"Bagian {sec1} tidak ditemukan di sections.tsx"
-    assert sec2 in sections_file, f"Bagian {sec2} tidak ditemukan di sections.tsx"
+    i18n_file = (FRONTEND_SRC / "lib" / "i18n.ts").read_text(encoding="utf-8")
+    combined_src = sections_file + i18n_file
+    assert sec1 in combined_src, f"Bagian {sec1} tidak ditemukan di sections.tsx / i18n.ts"
+    assert sec2 in combined_src, f"Bagian {sec2} tidak ditemukan di sections.tsx / i18n.ts"
 
     web = _web(context)
     if web and web.driver is not None:
@@ -715,9 +717,10 @@ def step_fe_verify_audit_cards(context, c1, c2, c3, c4):
     score_card_src = (FRONTEND_SRC / "components" / "audit" / "score-card.tsx").read_text(encoding="utf-8")
     findings_src = (FRONTEND_SRC / "components" / "audit" / "findings-table.tsx").read_text(encoding="utf-8")
     rev_src = (FRONTEND_SRC / "components" / "audit" / "revision-cards.tsx").read_text(encoding="utf-8")
-    combined = score_card_src + findings_src + rev_src
+    i18n_src = (FRONTEND_SRC / "lib" / "i18n.ts").read_text(encoding="utf-8")
+    combined = (score_card_src + findings_src + rev_src + i18n_src).lower()
     for label in (c1, c2, c3, c4):
-        assert label in combined, f"Komponen '{label}' tidak ditemukan pada halaman hasil audit"
+        assert label.lower() in combined, f"Komponen '{label}' tidak ditemukan pada halaman hasil audit"
     assert context.fe_last_audit["score"] > 0
     assert context.fe_last_audit["acceptanceCriteria"] is not None
 
@@ -767,7 +770,8 @@ def step_fe_clear_history(context):
 def step_fe_history_empty(context, msg):
     assert len(context.frontend.audits) == 0
     history_src = (FRONTEND_SRC / "app" / "(app)" / "history" / "page.tsx").read_text(encoding="utf-8")
-    assert msg in history_src
+    i18n_src = (FRONTEND_SRC / "lib" / "i18n.ts").read_text(encoding="utf-8")
+    assert msg in (history_src + i18n_src)
 
 
 @when("pengguna menekan tombol ganti tema di menu akun")
@@ -1064,4 +1068,130 @@ def step_fe_verify_history_sorted_desc(context):
     assert len(filtered) == len(context.frontend.audits)
     assert len(filtered) >= 2
     assert filtered[0]["score"] >= filtered[1]["score"]
+
+
+# =========================================================================== #
+# 8. THREE EVALUATORS, INVEST DIMENSIONS, RESULT INTEGRITY, & BILINGUAL EXPORT
+# =========================================================================== #
+@when('saya membuat audit baru menggunakan evaluator "{evaluator}" dengan judul "{judul}" dan konten "{konten}"')
+def step_create_audit_with_evaluator(context, evaluator, judul, konten):
+    context.response = context.backend.request(
+        "POST",
+        "/api/v1/audits",
+        headers=context.auth_headers,
+        json_body={
+            "judul_klausul": judul,
+            "konten": konten,
+            "tipe_masukan": "manual",
+            "evaluator": evaluator,
+        },
+    )
+    context.data = context.response.json()
+    if context.response.status_code == 202:
+        context.current_audit_id = context.data["data"]["id_audit"]
+
+
+@given('saya telah membuat audit menggunakan evaluator "{evaluator}" dengan judul "{judul}" dan konten "{konten}"')
+def step_given_created_audit_with_evaluator(context, evaluator, judul, konten):
+    step_create_audit_with_evaluator(context, evaluator, judul, konten)
+    assert context.response.status_code == 202
+
+
+@then("kontrak evaluasi menilai seluruh 6 dimensi INVEST lengkap dengan nilai confidence")
+def step_verify_ml_dimensions(context):
+    eval_data = context.data["data"]["evaluation"]
+    assert eval_data is not None, "Field evaluation bernilai None"
+    dims = eval_data["dimensions"]
+    expected_keys = ("independent", "negotiable", "valuable", "estimable", "small", "testable")
+    for k in expected_keys:
+        assert k in dims, f"Dimensi {k} tidak ditemukan"
+        assert dims[k]["label"] in ("PASS", "FAIL"), f"Dimensi {k} belum dievaluasi: {dims[k]}"
+        assert isinstance(dims[k]["confidence"], (int, float)), f"Confidence {k} bukan angka: {dims[k]}"
+    assert len(eval_data["assessed_dimensions"]) == 6
+    assert eval_data["invest_framework_score"] is not None
+
+
+@then("kontrak evaluasi memiliki alasan (rationale) pada seluruh 6 dimensi INVEST")
+def step_verify_llm_rationales(context):
+    eval_data = context.data["data"]["evaluation"]
+    assert eval_data is not None, "Field evaluation bernilai None"
+    dims = eval_data["dimensions"]
+    expected_keys = ("independent", "negotiable", "valuable", "estimable", "small", "testable")
+    for k in expected_keys:
+        assert k in dims, f"Dimensi {k} tidak ditemukan"
+        rationale = (dims[k].get("rationale") or "").strip()
+        assert len(rationale) > 5, f"Rationale untuk dimensi {k} kosong"
+
+
+@then("detail audit gagal tidak menampilkan scorecard palsu")
+def step_verify_failed_audit_no_fake_scorecard(context):
+    detail = context.data["data"]
+    assert detail["status_audit"] == "FAILED"
+    assert detail["actual_evaluator"] is None
+    assert detail["scorecard"] is None
+    assert detail["evaluation"] is None
+
+
+@when('saya mengunduh laporan ekspor audit dalam format "{fmt}" berbahasa "{lang}"')
+def step_export_audit_with_lang(context, fmt, lang):
+    context.response = context.backend.request(
+        "GET",
+        f"/api/v1/audits/{context.current_audit_id}/export?format={fmt}&lang={lang}",
+        headers=context.auth_headers,
+    )
+
+
+@then('isi laporan unduhan memuat "{expected_text}"')
+def step_verify_export_content(context, expected_text):
+    assert expected_text in context.response.text, (
+        f"'{expected_text}' tidak ditemukan di dalam laporan:\n{context.response.text}"
+    )
+
+
+@when('pengguna memilih mode evaluator "{evaluator_id}" pada halaman editor')
+def step_fe_select_evaluator(context, evaluator_id):
+    web = _web(context)
+    if web:
+        web.select_editor_evaluator(evaluator_id)
+    else:
+        context.frontend.select_evaluator(evaluator_id)
+
+
+@then('halaman hasil audit menampilkan atribusi evaluator diminta "{req_eval}" dan evaluator aktual "{act_eval}"')
+def step_fe_verify_evaluator_provenance(context, req_eval, act_eval):
+    audit_item = context.fe_last_audit
+    req_label = context.frontend.t(f"evaluator.{audit_item['requested_evaluator']}")
+    act_label = context.frontend.t(f"evaluator.{audit_item['actual_evaluator']}")
+    assert req_label == req_eval, f"Expected requested '{req_eval}', got '{req_label}'"
+    assert act_label == act_eval, f"Expected actual '{act_eval}', got '{act_label}'"
+    web = _web(context)
+    if web and web.driver is not None:
+        src = web.driver.page_source
+        assert req_eval in src, f"'{req_eval}' tidak tampil di DOM /audit"
+        assert act_eval in src, f"'{act_eval}' tidak tampil di DOM /audit"
+
+
+@then('halaman hasil audit menampilkan panel "{panel_title}" dengan 6 dimensi INVEST')
+def step_fe_verify_dimension_results_panel(context, panel_title):
+    assert context.frontend.t("dims.title") == panel_title
+    eval_obj = context.fe_last_audit.get("evaluation")
+    assert eval_obj is not None, "Objek evaluation tidak ditemukan pada hasil audit frontend"
+    dims = eval_obj.get("dimensions", {})
+    assert len(dims) == 6, f"Expected 6 dimensions, got {len(dims)}"
+    dim_comp_src = (FRONTEND_SRC / "components" / "audit" / "dimension-results.tsx").read_text(encoding="utf-8")
+    assert 'data-testid="dimension-results"' in dim_comp_src
+    web = _web(context)
+    if web and web.driver is not None:
+        el = web.wait_css('[data-testid="dimension-results"]', timeout=5)
+        assert el is not None
+        assert panel_title in web.driver.page_source
+
+
+@then('halaman hasil audit menampilkan panel berlabel "{panel_title}"')
+def step_fe_verify_dimension_panel_label(context, panel_title):
+    assert context.frontend.t("dims.title") == panel_title
+    web = _web(context)
+    if web and web.driver is not None:
+        web.wait_xpath(f"//*[@data-testid='dimension-results']//h2[contains(., '{panel_title}')]", timeout=5)
+
 

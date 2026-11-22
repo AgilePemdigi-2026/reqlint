@@ -26,6 +26,13 @@ if str(BACKEND_DIR) not in sys.path:
 
 from app.services.story_parser import StoryParser
 from app.services.scoring import ScoringService
+from app.services.evaluation_contract import (
+    EVALUATORS,
+    build_dimensions,
+    build_evaluation_result,
+    framework_score,
+    overall_verdict,
+)
 
 
 class SimpleResponse:
@@ -740,6 +747,17 @@ class ReqLintDirectEngine:
                     },
                 )
 
+            evaluator = str(payload.get("evaluator") or "rule_based").strip().lower()
+            if evaluator not in EVALUATORS:
+                return SimpleResponse(
+                    422,
+                    {
+                        "status": "error",
+                        "message": f"Evaluator tidak valid: {evaluator}",
+                        "error_code": "INVALID_EVALUATOR",
+                    },
+                )
+
             tipe = payload.get("tipe_masukan", "manual")
             id_dok = payload.get("id_dokumen")
             if tipe == "pdf":
@@ -764,6 +782,7 @@ class ReqLintDirectEngine:
             self._seq_audit += 1
             now_iso = datetime.now(timezone.utc).isoformat()
 
+            force_fail = bool(payload.get("simulate_failure")) or ("[FORCE_EVAL_FAIL]" in raw_text)
             st1 = self.analyze_stage1(raw_text)
             invest_flags = {
                 "independent": True,
@@ -786,30 +805,190 @@ class ReqLintDirectEngine:
                 }
             ]
 
-            self.drafts[self._seq_draft] = {
-                "id_draf": self._seq_draft,
-                "id_user": user["id_user"],
-                "id_dokumen": id_dok,
-                "judul_klausul": judul,
-                "tipe_masukan": tipe,
-                "konten_asli": raw_text,
-                "konten_revisi": None,
-                "status_revisi": "BELUM_DIREVISI",
-            }
-            self.audits[self._seq_audit] = {
-                "id_audit": self._seq_audit,
-                "id_draf": self._seq_draft,
-                "skor_awal": sc["skor_kualitas"],
-                "skor_kualitas": sc["skor_kualitas"],
-                "tanggal_audit": now_iso,
-                "status_audit": "COMPLETED",
-                "stage2_status": "DONE",
-                "ai_rewrite": ai_rewrite,
-                "acceptance_criteria": acceptance_criteria,
-                "breakdown": sc["breakdown"],
-                "temuan": st1["findings"],
-                "ringkasan": st1["ringkasan"],
-            }
+            if force_fail and evaluator in ("traditional_ml", "llm"):
+                err_code = "LLM_EVALUATOR_UNAVAILABLE" if evaluator == "llm" else "ML_EVALUATOR_UNAVAILABLE"
+                err_msg = (
+                    "Evaluator LLM/SLM tidak dapat dijalankan karena belum ada provider nyata yang dikonfigurasi di server."
+                    if evaluator == "llm"
+                    else "Evaluator Traditional ML tidak dapat dijalankan karena model tidak tersedia di server."
+                )
+                self.drafts[self._seq_draft] = {
+                    "id_draf": self._seq_draft,
+                    "id_user": user["id_user"],
+                    "id_dokumen": id_dok,
+                    "judul_klausul": judul,
+                    "tipe_masukan": tipe,
+                    "konten_asli": raw_text,
+                    "konten_revisi": None,
+                    "status_revisi": "BELUM_DIREVISI",
+                }
+                self.audits[self._seq_audit] = {
+                    "id_audit": self._seq_audit,
+                    "id_draf": self._seq_draft,
+                    "evaluator": evaluator,
+                    "requested_evaluator": evaluator,
+                    "actual_evaluator": None,
+                    "model_version": None,
+                    "evaluator_error_code": err_code,
+                    "evaluator_error": {"code": err_code, "evaluator": evaluator, "message": err_msg},
+                    "generation": {"provider": None, "model": None, "status": "FAILED", "error": err_msg},
+                    "ai_invest_notes": None,
+                    "evaluation": None,
+                    "ai_suggestion_source": None,
+                    "skor_awal": None,
+                    "skor_kualitas": 0.0,
+                    "tanggal_audit": now_iso,
+                    "status_audit": "FAILED",
+                    "stage2_status": "FAILED",
+                    "ai_rewrite": "",
+                    "acceptance_criteria": [],
+                    "breakdown": {"evaluator_error": {"code": err_code, "evaluator": evaluator, "message": err_msg}},
+                    "temuan": [],
+                    "ringkasan": {"ambiguity": 0, "tidak_lengkap": 0, "weak_directive": 0, "passive_voice": 0, "total": 0},
+                }
+            else:
+                val_pass = st1["ringkasan"]["tidak_lengkap"] == 0
+                test_pass = (
+                    st1["ringkasan"]["ambiguity"]
+                    + st1["ringkasan"]["weak_directive"]
+                    + st1["ringkasan"]["passive_voice"]
+                ) == 0
+                if evaluator == "rule_based":
+                    dims = build_dimensions(
+                        {"valuable": "PASS" if val_pass else "FAIL", "testable": "PASS" if test_pass else "FAIL"},
+                        rationales={
+                            "valuable": "NO_DEFECT_DETECTED" if val_pass else "TIDAK_LENGKAP findings",
+                            "testable": "NO_DEFECT_DETECTED" if test_pass else "AMBIGUITY/WEAK_DIRECTIVE/PASSIVE_VOICE findings",
+                        },
+                    )
+                    verdict = overall_verdict(dims)
+                    final_score = float(sc["skor_kualitas"])
+                    model_ver = None
+                    eval_contract = build_evaluation_result(
+                        "rule_based",
+                        verdict,
+                        final_score,
+                        dims,
+                        model_version=None,
+                        findings=st1["findings"],
+                    )
+                    findings_out = st1["findings"]
+                    ringkasan_out = st1["ringkasan"]
+                elif evaluator == "traditional_ml":
+                    dims = build_dimensions(
+                        {
+                            "independent": "PASS",
+                            "negotiable": "PASS" if st1["ringkasan"]["weak_directive"] == 0 else "FAIL",
+                            "valuable": "PASS" if val_pass else "FAIL",
+                            "estimable": "PASS" if st1["ringkasan"]["ambiguity"] == 0 else "FAIL",
+                            "small": "PASS",
+                            "testable": "PASS" if test_pass else "FAIL",
+                        },
+                        confidences={
+                            "independent": 0.9116,
+                            "negotiable": 0.8240 if st1["ringkasan"]["weak_directive"] == 0 else 0.1814,
+                            "valuable": 0.8920 if val_pass else 0.3120,
+                            "estimable": 0.7881 if st1["ringkasan"]["ambiguity"] == 0 else 0.2450,
+                            "small": 0.8695,
+                            "testable": 0.8451 if test_pass else 0.2910,
+                        },
+                        rationales={
+                            c: "trained model probability (threshold 0.5)"
+                            for c in ["independent", "negotiable", "valuable", "estimable", "small", "testable"]
+                        },
+                    )
+                    verdict = overall_verdict(dims)
+                    final_score = float(framework_score(dims) or sc["skor_kualitas"])
+                    model_ver = "2.1.0-srs-hybrid"
+                    eval_contract = build_evaluation_result(
+                        "traditional_ml",
+                        verdict,
+                        final_score,
+                        dims,
+                        model_version=model_ver,
+                    )
+                    findings_out = st1["findings"]
+                    ringkasan_out = st1["ringkasan"]
+                else:  # llm
+                    dims = build_dimensions(
+                        {
+                            "independent": "PASS",
+                            "negotiable": "PASS",
+                            "valuable": "PASS" if val_pass else "FAIL",
+                            "estimable": "PASS" if st1["ringkasan"]["ambiguity"] == 0 else "FAIL",
+                            "small": "PASS",
+                            "testable": "PASS" if test_pass else "FAIL",
+                        },
+                        rationales={
+                            "independent": "User story mendeskripsikan kapabilitas mandiri tanpa ketergantungan tersembunyi.",
+                            "negotiable": "Format Connextra membuka ruang diskusi implementasi bersama tim pengembang.",
+                            "valuable": "Manfaat bisnis bagi pengguna dinyatakan secara jelas." if val_pass else "Klausul manfaat (agar/sehingga) belum dinyatakan.",
+                            "estimable": "Cakupan kebutuhan cukup spesifik untuk diestimasi." if st1["ringkasan"]["ambiguity"] == 0 else "Masih terdapat kata sifat ambigu yang menyulitkan estimasi.",
+                            "small": "Ukuran fitur cukup ringkas untuk diselesaikan dalam satu sprint.",
+                            "testable": "Kriteria keberhasilan dapat diverifikasi secara objektif." if test_pass else "Terdapat kata sifat relatif/direktif lemah yang belum terukur.",
+                        },
+                    )
+                    verdict = overall_verdict(dims)
+                    final_score = float(framework_score(dims) or sc["skor_kualitas"])
+                    model_ver = "openai_compatible/openai/gpt-oss-120b"
+                    eval_contract = build_evaluation_result(
+                        "llm",
+                        verdict,
+                        final_score,
+                        dims,
+                        model_version=model_ver,
+                    )
+                    findings_out = st1["findings"]
+                    ringkasan_out = st1["ringkasan"]
+
+                gen_obj = {
+                    "provider": "openai_compatible",
+                    "model": "openai/gpt-oss-120b",
+                    "status": "DONE",
+                    "explanation": f"Evaluasi menggunakan {evaluator} menghasilkan verdict {verdict} dengan skor {final_score}.",
+                    "recommendation": "Gunakan metrik kuantitatif yang terukur dan sertakan kriteria penerimaan Given/When/Then.",
+                }
+                breakdown_out = {
+                    **sc["breakdown"],
+                    "evaluation": eval_contract,
+                    "generation": gen_obj,
+                    "ai_invest_notes": invest_flags,
+                }
+                self.drafts[self._seq_draft] = {
+                    "id_draf": self._seq_draft,
+                    "id_user": user["id_user"],
+                    "id_dokumen": id_dok,
+                    "judul_klausul": judul,
+                    "tipe_masukan": tipe,
+                    "konten_asli": raw_text,
+                    "konten_revisi": None,
+                    "status_revisi": "BELUM_DIREVISI",
+                }
+                self.audits[self._seq_audit] = {
+                    "id_audit": self._seq_audit,
+                    "id_draf": self._seq_draft,
+                    "evaluator": evaluator,
+                    "requested_evaluator": evaluator,
+                    "actual_evaluator": evaluator,
+                    "model_version": model_ver,
+                    "evaluator_error_code": None,
+                    "evaluator_error": None,
+                    "generation": gen_obj,
+                    "ai_invest_notes": invest_flags,
+                    "evaluation": eval_contract,
+                    "ai_suggestion_source": "provider",
+                    "skor_awal": final_score,
+                    "skor_kualitas": final_score,
+                    "tanggal_audit": now_iso,
+                    "status_audit": "COMPLETED",
+                    "stage2_status": "DONE",
+                    "ai_rewrite": ai_rewrite,
+                    "acceptance_criteria": acceptance_criteria,
+                    "breakdown": breakdown_out,
+                    "temuan": findings_out,
+                    "ringkasan": ringkasan_out,
+                }
+
             return SimpleResponse(
                 202,
                 {
@@ -818,6 +997,8 @@ class ReqLintDirectEngine:
                     "data": {
                         "id_draf": self._seq_draft,
                         "id_audit": self._seq_audit,
+                        "evaluator": evaluator,
+                        "requested_evaluator": evaluator,
                         "status_audit": "PROCESSING",
                         "stage2_status": "PENDING",
                         "poll_url": f"/api/v1/audits/{self._seq_audit}/status",
@@ -934,18 +1115,32 @@ class ReqLintDirectEngine:
                             "id_draf": draf["id_draf"],
                             "judul_klausul": draf["judul_klausul"],
                             "tipe_masukan": draf["tipe_masukan"],
+                            "evaluator": audit.get("evaluator", "rule_based"),
+                            "requested_evaluator": audit.get("requested_evaluator", "rule_based"),
+                            "actual_evaluator": audit.get("actual_evaluator", "rule_based"),
+                            "model_version": audit.get("model_version"),
+                            "evaluator_error_code": audit.get("evaluator_error_code"),
+                            "evaluator_error": audit.get("evaluator_error"),
+                            "generation": audit.get("generation"),
+                            "ai_invest_notes": audit.get("ai_invest_notes"),
+                            "evaluation": audit.get("evaluation"),
+                            "ai_suggestion_source": audit.get("ai_suggestion_source", "provider"),
                             "status_audit": audit["status_audit"],
                             "stage2_status": audit["stage2_status"],
                             "status_revisi": draf["status_revisi"],
                             "tanggal_audit": audit["tanggal_audit"],
-                            "scorecard": {
+                            "scorecard": None
+                            if audit["status_audit"] == "FAILED"
+                            else {
                                 "skor_awal": audit["skor_awal"],
                                 "skor_kualitas": audit["skor_kualitas"],
                                 "breakdown": audit["breakdown"],
                             },
                             "ringkasan": audit["ringkasan"],
                             "temuan": audit["temuan"],
-                            "rekomendasi_ai": {
+                            "rekomendasi_ai": None
+                            if audit["status_audit"] == "FAILED"
+                            else {
                                 "ai_rewrite": audit["ai_rewrite"],
                                 "acceptance_criteria": audit["acceptance_criteria"],
                             },
@@ -1063,16 +1258,27 @@ class ReqLintDirectEngine:
                         422,
                         {"status": "error", "message": "Format tidak didukung", "error_code": "UNSUPPORTED_FORMAT"},
                     )
+                lang_param = (params.get("lang") or "id").strip().lower()
+                if lang_param not in {"id", "en"}:
+                    return SimpleResponse(
+                        422,
+                        {"status": "error", "message": "Bahasa laporan tidak didukung", "error_code": "UNSUPPORTED_LANG"},
+                    )
                 filename = f"reqlint-audit-{id_audit}.{fmt}"
                 disp = f'attachment; filename="{filename}"'
                 if fmt == "json":
                     payload_out = {
                         "id_audit": id_audit,
                         "judul_klausul": draf["judul_klausul"],
+                        "evaluator": audit.get("evaluator", "rule_based"),
+                        "requested_evaluator": audit.get("requested_evaluator", "rule_based"),
+                        "actual_evaluator": audit.get("actual_evaluator", "rule_based"),
+                        "model_version": audit.get("model_version"),
                         "skor_kualitas": audit["skor_kualitas"],
                         "konten_asli": draf["konten_asli"],
                         "konten_revisi": draf["konten_revisi"],
                         "temuan": audit["temuan"],
+                        "evaluation": audit.get("evaluation"),
                     }
                     return SimpleResponse(
                         200,
@@ -1080,7 +1286,20 @@ class ReqLintDirectEngine:
                         headers={"content-type": "application/json", "content-disposition": disp},
                     )
                 elif fmt == "md":
-                    md_text = f"# Laporan Audit ReqLint\n\n- **ID Audit**: {id_audit}\n- **Skor**: {audit['skor_kualitas']}\n"
+                    if lang_param == "en":
+                        md_text = (
+                            f"# Requirements Audit Report: {draf['judul_klausul']}\n\n"
+                            f"- **Audit ID**: {id_audit}\n"
+                            f"- **Evaluator**: {audit.get('actual_evaluator') or audit.get('requested_evaluator')}\n"
+                            f"- **Current Score**: {audit['skor_kualitas']}\n"
+                        )
+                    else:
+                        md_text = (
+                            f"# Laporan Audit Kebutuhan: {draf['judul_klausul']}\n\n"
+                            f"- **ID Audit**: {id_audit}\n"
+                            f"- **Evaluator**: {audit.get('actual_evaluator') or audit.get('requested_evaluator')}\n"
+                            f"- **Skor Terkini**: {audit['skor_kualitas']}\n"
+                        )
                     return SimpleResponse(
                         200,
                         md_text,
@@ -1134,7 +1353,12 @@ class FrontendSimulator:
     DEMO_USER = {"name": "Fajar Akbar", "email": "demo@reqlint.app"}
     DEMO_PASSWORD = "demo12345"
     PROTECTED_ROUTES = ("/editor", "/history", "/help", "/contact")
-    PAGE_TITLE_KEYS = {"/help": "help.title", "/contact": "contact.title", "/history": "history.title"}
+    PAGE_TITLE_KEYS = {
+        "/editor": "editor.title",
+        "/help": "help.title",
+        "/contact": "contact.title",
+        "/history": "history.title",
+    }
 
     def __init__(self, backend_engine: ReqLintDirectEngine):
         self.backend = backend_engine
@@ -1167,6 +1391,7 @@ class FrontendSimulator:
         self.current_page = "/"
         self.theme = "light"
         self.ui_locale = "id"
+        self.selected_evaluator = "rule_based"
         self.current_user: Optional[Dict[str, str]] = None
         self.auth_token: Optional[str] = None
         self.draft = {
@@ -1210,6 +1435,11 @@ class FrontendSimulator:
                 self.last_message = self.t("reset.invalid_token")
 
     def page_title(self) -> Optional[str]:
+        if self.current_page.startswith("/audit/"):
+            latest = self.audits[0] if self.audits else None
+            if latest and latest.get("status_audit") == "FAILED":
+                return self.t("audit.failed_title")
+            return self.t("audit.title")
         key = self.PAGE_TITLE_KEYS.get(self.current_page)
         return self.t(key) if key else None
 
@@ -1353,6 +1583,10 @@ class FrontendSimulator:
     def select_language(self, lang: str):
         self.draft["language"] = lang
 
+    def select_evaluator(self, evaluator_id: str):
+        assert evaluator_id in EVALUATORS, f"Evaluator tidak dikenal: {evaluator_id}"
+        self.selected_evaluator = evaluator_id
+
     def select_template(self, template_id: str):
         templates = {
             "login": {
@@ -1398,11 +1632,35 @@ class FrontendSimulator:
     def run_editor_analysis(self) -> Dict[str, Any]:
         text = self.draft["text"].strip()
         lang = self.draft["language"]
+        evaluator = self.selected_evaluator or "rule_based"
         self._seq += 1
         audit_id = f"AUD-{self._seq}"
+
+        # Sinkronkan juga ke backend engine agar endpoint /api/v1/audits memiliki record yang sama
+        headers = {"Authorization": f"Bearer {self.auth_token or 'jwt_demo_fajar_akbar'}"}
+        create_resp = self.backend.request(
+            "POST",
+            "/api/v1/audits",
+            headers=headers,
+            json_body={
+                "judul_klausul": text[:48],
+                "konten": text,
+                "tipe_masukan": "manual",
+                "evaluator": evaluator,
+            },
+        )
+        be_detail = None
+        if create_resp.status_code == 202:
+            be_id = create_resp.json()["data"]["id_audit"]
+            det_resp = self.backend.request("GET", f"/api/v1/audits/{be_id}", headers=headers)
+            if det_resp.status_code == 200:
+                be_detail = det_resp.json()["data"]
+
         st1 = self.backend.analyze_stage1(text)
         sc = ScoringService.calculate_score(st1["stories"], st1["findings"])
-        score = int(round(sc["skor_kualitas"]))
+        score = int(round(be_detail["skor_kualitas"])) if be_detail and be_detail.get("skor_kualitas") is not None else int(round(sc["skor_kualitas"]))
+        if be_detail and be_detail.get("scorecard") and be_detail["scorecard"].get("skor_kualitas") is not None:
+            score = int(round(be_detail["scorecard"]["skor_kualitas"]))
         grade = (
             "excellent"
             if score >= 85
@@ -1424,11 +1682,21 @@ class FrontendSimulator:
 
         audit_item = {
             "id": audit_id,
+            "backend_id": be_detail["id_audit"] if be_detail else None,
             "seq": self._seq,
             "createdAt": datetime.now(timezone.utc).isoformat(),
             "title": text[:48],
             "text": text,
             "language": lang,
+            "evaluator": evaluator,
+            "requested_evaluator": be_detail.get("requested_evaluator", evaluator) if be_detail else evaluator,
+            "actual_evaluator": be_detail.get("actual_evaluator", evaluator) if be_detail else evaluator,
+            "model_version": be_detail.get("model_version") if be_detail else None,
+            "status_audit": be_detail.get("status_audit", "COMPLETED") if be_detail else "COMPLETED",
+            "evaluator_error_code": be_detail.get("evaluator_error_code") if be_detail else None,
+            "evaluator_error": be_detail.get("evaluator_error") if be_detail else None,
+            "evaluation": be_detail.get("evaluation") if be_detail else None,
+            "generation": be_detail.get("generation") if be_detail else None,
             "score": score,
             "grade": grade,
             "findings": st1["findings"],
