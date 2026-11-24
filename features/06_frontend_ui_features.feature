@@ -4,9 +4,9 @@ Feature: Antarmuka Pengguna Frontend ReqLint (Landing, Auth, Editor, Upload PDF,
   Saya ingin menggunakan seluruh fitur UI dari halaman publik, autentikasi, editor, hingga hasil audit dan riwayat
   Agar saya dapat menganalisis dan memperbaiki User Story secara interaktif
 
-  Scenario: Membuka Landing Page publik dan melihat bagian fitur serta standar ISO 29148 & INVEST
+  Scenario: Membuka Landing Page publik dan melihat bagian fitur serta standar pemeriksaan dokumen & INVEST
     Given pengguna membuka halaman utama "/" pada frontend ReqLint
-    Then halaman menampilkan komponen Landing Page beserta bagian "ISO/IEC/IEEE 29148" dan "INVEST"
+    Then halaman menampilkan komponen Landing Page beserta bagian "Pemeriksaan Dokumen (heuristik)" dan "INVEST"
 
   Scenario: Proteksi halaman terproteksi (/editor dan /history) mengarahkan pengguna yang belum login ke /login
     Given pengguna belum login pada frontend ReqLint

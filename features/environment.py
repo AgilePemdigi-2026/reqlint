@@ -28,7 +28,7 @@ def before_all(context):
     userdata = context.config.userdata
     open_browser = _as_bool(userdata.get("open_browser"), default=True)
     headless = _as_bool(userdata.get("headless"), default=False)
-    step_delay = float(userdata.get("step_delay", 0.35))
+    step_delay = float(userdata.get("step_delay", 0.15))
     frontend_url = userdata.get("frontend_url", "http://localhost:3000")
     backend_url = userdata.get("backend_url", "http://localhost:8000")
 

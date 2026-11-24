@@ -64,7 +64,7 @@ class RealWebAppRunner:
         frontend_sim,
         open_browser: bool = True,
         headless: bool = False,
-        step_delay: float = 0.35,
+        step_delay: float = 0.15,
         frontend_url: str = "http://localhost:3000",
         backend_url: str = "http://localhost:8000",
     ):
@@ -364,14 +364,22 @@ class RealWebAppRunner:
         """Isi dan kirim form registrasi asli di halaman /register."""
         if self.driver is None:
             return self.frontend_sim.register_user(name, email, password, confirm, terms=terms)
+        expect_success = (
+            len(name.strip()) >= 2
+            and "@" in email
+            and len(password) >= 8
+            and password == confirm
+            and terms
+            and email.strip().lower() not in self.backend_engine.users_by_email
+        )
         try:
             if self.current_path() != "/register":
                 self.driver.get(f"{self.frontend_url}/register")
-            name_el = self.wait_css('input[name="name"]', timeout=10)
-            email_el = self.wait_css('input[name="email"]', timeout=8)
-            pwd_el = self.wait_css('input[name="password"]', timeout=8)
-            conf_el = self.wait_css('input[name="confirm"]', timeout=8)
-            terms_el = self.wait_css('input[name="terms"]', timeout=8)
+            name_el = self.wait_css('input[name="name"]', timeout=5)
+            email_el = self.wait_css('input[name="email"]', timeout=4)
+            pwd_el = self.wait_css('input[name="password"]', timeout=4)
+            conf_el = self.wait_css('input[name="confirm"]', timeout=4)
+            terms_el = self.wait_css('input[name="terms"]', timeout=4)
 
             for el, val in [(name_el, name), (email_el, email), (pwd_el, password), (conf_el, confirm)]:
                 el.clear()
@@ -382,14 +390,18 @@ class RealWebAppRunner:
             elif not terms and terms_el.is_selected():
                 terms_el.click()
 
-            submit_btn = self.wait_xpath("//button[@type='submit' and contains(., 'Daftar')]", timeout=8)
+            submit_btn = self.wait_xpath(
+                "//button[@type='submit' and (contains(., 'Daftar') or contains(., 'Register'))]",
+                timeout=4,
+            )
             submit_btn.click()
-            self.wait_url_contains("/login", timeout=10)
+            if expect_success:
+                self.wait_url_contains("/login", timeout=4)
             self.pause()
         except Exception:
             pass
         # Sinkronkan state simulator (jika browser sudah mendaftarkan ke backend, pastikan status simulator juga sesuai)
-        if email.strip().lower() in self.backend_engine.users_by_email:
+        if expect_success and email.strip().lower() in self.backend_engine.users_by_email:
             self.frontend_sim.last_error = None
             self.frontend_sim.last_toast = self.frontend_sim.t("register.success")
             self.frontend_sim.current_user = None
@@ -478,6 +490,30 @@ class RealWebAppRunner:
         except Exception:
             pass
 
+    def select_editor_evaluator(self, evaluator_id: str):
+        """Pilih mode evaluator ('rule_based', 'traditional_ml', atau 'llm') pada halaman /editor."""
+        self.frontend_sim.select_evaluator(evaluator_id)
+        if self.driver is None:
+            return
+        label_map = {
+            "rule_based": "Rule-Based",
+            "traditional_ml": "Traditional ML",
+            "llm": "LLM/SLM",
+        }
+        target_label = label_map.get(evaluator_id, "Rule-Based")
+        try:
+            self.ensure_demo_logged_in()
+            if self.current_path() != "/editor":
+                self.driver.get(f"{self.frontend_url}/editor")
+            btn = self.wait_xpath(
+                f"//div[@role='radiogroup']//button[@role='radio' and contains(., '{target_label}')]",
+                timeout=5,
+            )
+            btn.click()
+            self.pause()
+        except Exception:
+            pass
+
     def set_editor_draft_text(self, text: str):
         """Ketik draf kebutuhan ke dalam <textarea aria-label='Editor draf kebutuhan'> di halaman /editor."""
         self.frontend_sim.set_editor_text(text)
@@ -487,7 +523,10 @@ class RealWebAppRunner:
             self.ensure_demo_logged_in()
             if self.current_path() != "/editor":
                 self.driver.get(f"{self.frontend_url}/editor")
-            self.wait_css('textarea[aria-label="Editor draf kebutuhan"]', timeout=10)
+            self.wait_css(
+                'textarea[aria-label="Editor draf kebutuhan"], textarea[aria-label="Requirements draft editor"]',
+                timeout=5,
+            )
             lang = self.frontend_sim.draft.get("language", "id")
             self.driver.execute_script(
                 """
@@ -517,10 +556,10 @@ class RealWebAppRunner:
             self.ensure_demo_logged_in()
             if self.current_path() != "/editor":
                 self.driver.get(f"{self.frontend_url}/editor")
-            file_input = self.wait_css('input[type="file"][aria-label="Unggah berkas PDF atau teks"]', timeout=10)
+            file_input = self.wait_css('input[type="file"]', timeout=5)
             if file_path.exists():
                 file_input.send_keys(str(file_path.resolve()))
-                time.sleep(1.0)
+                time.sleep(0.6)
             self.pause()
         except Exception:
             pass
@@ -535,11 +574,11 @@ class RealWebAppRunner:
                     self.set_editor_draft_text(self.frontend_sim.draft["text"])
                 btn = self.wait_xpath(
                     "//button[(contains(., 'Audit User Story') or contains(., 'Analisis')) and not(@disabled)]",
-                    timeout=10,
+                    timeout=5,
                 )
                 btn.click()
-                self.wait_url_contains("/audit/", timeout=10)
-                self.wait_css('section[aria-label="Quality Scorecard"]', timeout=10)
+                self.wait_url_contains("/audit/", timeout=5)
+                self.wait_css("h1", timeout=5)
                 self.pause()
             except Exception:
                 pass
@@ -553,11 +592,10 @@ class RealWebAppRunner:
             return next_audit
         try:
             apply_btn = self.wait_xpath(
-                "//section[@aria-label='Rekomendasi perbaikan']//button[contains(., 'Apply')]",
-                timeout=10,
+                "//button[contains(., 'Apply') and not(contains(., 'Revision'))]",
+                timeout=5,
             )
             apply_btn.click()
-            self.wait_url_contains(f"/audit/{next_audit['id']}", timeout=10)
             self.pause()
         except Exception:
             pass
