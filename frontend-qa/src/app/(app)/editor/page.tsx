@@ -9,9 +9,16 @@ import { Popover } from '@/components/popover';
 import { useToast } from '@/components/providers';
 import { countWords, liveMarks, splitClauses, suggestTitle, type Language } from '@/lib/analyzer';
 import { createAudit, dismissTip, setDraft, useDraft, useTipDismissed } from '@/lib/audits';
-import { apiCreateAudit, uploadDocumentPdf, type EvaluatorId } from '@/lib/api';
+import { apiCreateAudit, uploadDocumentPdf } from '@/lib/api';
 import { useT } from '@/lib/i18n';
-import { EVALUATOR_OPTIONS } from '@/lib/evaluator-options';
+import {
+  ANALYZER_CATEGORY_OPTIONS,
+  DEFAULT_ML_MODEL,
+  ML_MODEL_OPTIONS,
+  resolveEvaluatorPayload,
+  type AnalyzerCategory,
+  type MlModelId,
+} from '@/lib/evaluator-options';
 import { TEMPLATES } from '@/lib/templates';
 import { useFileImport } from '@/lib/use-file-import';
 import { MAX_CHARS } from '@/lib/validation';
@@ -27,9 +34,9 @@ export default function EditorPage() {
   const t = useT();
   const [analyzing, setAnalyzing] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
-  // Task 06: evaluator selection — Rule-Based default; fallback browser
-  // hanya berlaku untuk Rule-Based (metode lain tidak punya padanan lokal).
-  const [evaluator, setEvaluator] = useState<EvaluatorId>('rule_based');
+  // Task 06 + granular ML selection: analyzer category + ML model dropdown.
+  const [category, setCategory] = useState<AnalyzerCategory>('rule_based');
+  const [mlModel, setMlModel] = useState<MlModelId>(DEFAULT_ML_MODEL);
 
   const { busy: localImporting, onChange: onLocalFile } = useFileImport((text) => setDraft({ ...draft, text }));
 
@@ -49,6 +56,7 @@ export default function EditorPage() {
   async function analyzeNow() {
     if (empty || analyzing) return;
     setAnalyzing(true);
+    const { evaluator, ml_model } = resolveEvaluatorPayload(category, mlModel);
 
     try {
       const res = await apiCreateAudit({
@@ -56,6 +64,7 @@ export default function EditorPage() {
         judul_klausul: suggestTitle(draft.text, draft.language),
         tipe_masukan: 'manual',
         evaluator,
+        ...(ml_model ? { ml_model } : {}),
       });
 
       if (res.data?.id_audit) {
@@ -76,7 +85,7 @@ export default function EditorPage() {
     // LLM tidak punya implementasi lokal yang setara — tampilkan error,
     // jangan ganti evaluator secara diam-diam.
     if (evaluator !== 'rule_based') {
-      const name = t(`evaluator.${evaluator}`);
+      const name = category === 'machine_learning' ? t(`ml_model.${mlModel}`) : t(`evaluator.${evaluator}`);
       toast(t('editor.needs_backend', { name }));
       setAnalyzing(false);
       return;
@@ -217,8 +226,8 @@ export default function EditorPage() {
         <div className="mt-5">
           <div className="mb-3" role="radiogroup" aria-label={t('editor.evaluator_aria')}>
             <span className="mb-2 block text-[12.5px] font-medium text-muted">{t('editor.evaluator_label')}:</span>
-            <div className="flex flex-wrap gap-2">
-              {EVALUATOR_OPTIONS.map((opt) => {
+            <div className="flex flex-wrap items-center gap-2">
+              {ANALYZER_CATEGORY_OPTIONS.map((opt) => {
                 const id = opt.id;
                 const label = t(opt.labelKey);
                 return (
@@ -226,21 +235,48 @@ export default function EditorPage() {
                   key={id}
                   type="button"
                   role="radio"
-                  aria-checked={evaluator === id}
-                  onClick={() => setEvaluator(id)}
+                  aria-checked={category === id}
+                  onClick={() => setCategory(id)}
                   className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-[13px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 ${
-                    evaluator === id
+                    category === id
                       ? 'border-transparent bg-btn text-btnink font-semibold'
                       : 'border-line/25 bg-card/60 text-muted hover:text-ink hover:bg-card'
                   }`}
                 >
-                  {evaluator === id && (
+                  {category === id && (
                     <Check size={13} aria-hidden className="shrink-0" />
                   )}
                   {label}
                 </button>
               );
               })}
+
+              {category === 'machine_learning' && (
+                <label className="inline-flex items-center gap-2 ml-1">
+                  <span className="text-[12.5px] font-medium text-muted">{t('editor.ml_model_label')}:</span>
+                  <select
+                    aria-label={t('editor.ml_model_label')}
+                    value={mlModel}
+                    onChange={(e) => setMlModel(e.target.value as MlModelId)}
+                    className="rounded-full border border-line/25 bg-card px-3.5 py-1.5 text-[13px] text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+                  >
+                    <optgroup label="ML V1">
+                      {ML_MODEL_OPTIONS.filter((m) => m.group === 'ML V1').map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {t(m.labelKey)}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="ML V2">
+                      {ML_MODEL_OPTIONS.filter((m) => m.group === 'ML V2').map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {t(m.labelKey)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </label>
+              )}
             </div>
           </div>
           <CodeEditor

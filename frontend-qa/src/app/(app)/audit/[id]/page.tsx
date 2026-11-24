@@ -38,12 +38,14 @@ import {
 import { createAudit, setDraft, touchAudit, useAudit } from '@/lib/audits';
 import { resolveAiSuggestionStatus } from '@/lib/ai-status';
 import { useT, useUILocale, translations } from '@/lib/i18n';
+import axios from 'axios';
 import {
   apiApplyAudit,
   apiDownloadExport,
   apiGetAuditDetail,
   apiGetAuditStatus,
   apiReanalyzeAudit,
+  extractApiError,
   type BackendAuditDetail,
 } from '@/lib/api';
 import { buildExport, copyText, download, toMarkdown, type ExportFormat } from '@/lib/export';
@@ -66,6 +68,11 @@ function localizedEvaluatorError(code: string | null | undefined, fallback: stri
 }
 
 type PagePhase = 'loading' | 'processing' | 'ready' | 'error';
+type LoadErrorKind = 'network' | 'auth' | 'not_found' | 'http';
+interface LoadErrorState {
+  kind: LoadErrorKind;
+  message?: string;
+}
 
 export default function AuditPage() {
   const { id } = useParams<{ id: string }>();
@@ -82,6 +89,7 @@ export default function AuditPage() {
 
   const [backendDetail, setBackendDetail] = useState<BackendAuditDetail | null>(null);
   const [phase, setPhase] = useState<PagePhase>(isLocalAuditId ? 'ready' : 'loading');
+  const [loadError, setLoadError] = useState<LoadErrorState | null>(null);
   const [pollingStage, setPollingStage] = useState<string>('');
   const [applyingRevision, setApplyingRevision] = useState<boolean>(false);
   const [reanalyzing, setReanalyzing] = useState<boolean>(false);
@@ -99,11 +107,13 @@ export default function AuditPage() {
   const loadAudit = useCallback(async () => {
     clearTimer();
     setPhase('loading');
+    setLoadError(null);
     setPollingStage('');
     try {
       const res = await apiGetAuditDetail(id);
       const detail = res.data;
       if (!detail) {
+        setLoadError({ kind: 'not_found' });
         setPhase('error');
         return;
       }
@@ -135,8 +145,22 @@ export default function AuditPage() {
       }
     } catch (err) {
       console.warn('Gagal memuat audit dari backend:', err);
-      // Task 10: for backend audits we show an explicit error — the local
-      // Rule-Based result is NOT substituted silently (wrong provenance).
+      // Classify the actual failure rather than misreporting HTTP 401/404/500
+      // as "Backend tidak dapat dihubungi". Never fall back to local Rule-Based.
+      if (axios.isAxiosError(err)) {
+        const status = err.response?.status;
+        if (status === 401 || status === 403) {
+          setLoadError({ kind: 'auth', message: extractApiError(err).message });
+        } else if (status === 404) {
+          setLoadError({ kind: 'not_found', message: extractApiError(err).message });
+        } else if (err.response) {
+          setLoadError({ kind: 'http', message: extractApiError(err).message });
+        } else {
+          setLoadError({ kind: 'network' });
+        }
+      } else {
+        setLoadError({ kind: 'network' });
+      }
       setPhase('error');
     }
   }, [id, t]);
@@ -225,15 +249,39 @@ export default function AuditPage() {
   }
 
   if (!isLocalAuditId && phase === 'error') {
+    const errKind = loadError?.kind ?? 'network';
+    const errTitle =
+      errKind === 'auth'
+        ? t('audit.auth_error_title')
+        : errKind === 'not_found'
+          ? t('audit.server_not_found_title')
+          : errKind === 'http'
+            ? t('audit.http_error_title')
+            : t('audit.backend_error_title');
+    const errDesc =
+      errKind === 'auth'
+        ? t('audit.auth_error_desc', { id })
+        : errKind === 'not_found'
+          ? t('audit.server_not_found_desc', { id })
+          : errKind === 'http'
+            ? (loadError?.message || t('audit.backend_error_desc', { id }))
+            : t('audit.backend_error_desc', { id });
+
     return (
       <div className="card mx-auto flex max-w-[560px] flex-col items-center gap-4 px-8 py-14 text-center">
         <ShieldAlert size={30} strokeWidth={1.5} className="text-amber-600 dark:text-amber-400" aria-hidden />
-        <h1 className="text-[20px] font-semibold">{t('audit.backend_error_title')}</h1>
-        <p className="text-[14px] text-muted">{t('audit.backend_error_desc', { id })}</p>
+        <h1 className="text-[20px] font-semibold">{errTitle}</h1>
+        <p className="text-[14px] text-muted">{errDesc}</p>
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <button type="button" onClick={() => loadAudit()} className="btn-primary mt-1 h-11 px-6 text-[14px]">
-            <RefreshCw size={14} className="mr-1.5 inline" aria-hidden /> {t('audit.backend_error_retry')}
-          </button>
+          {errKind === 'auth' ? (
+            <Link href="/login" className="btn-primary mt-1 h-11 px-6 text-[14px]">
+              {t('audit.auth_login_cta')}
+            </Link>
+          ) : (
+            <button type="button" onClick={() => loadAudit()} className="btn-primary mt-1 h-11 px-6 text-[14px]">
+              <RefreshCw size={14} className="mr-1.5 inline" aria-hidden /> {t('audit.backend_error_retry')}
+            </button>
+          )}
           <Link href="/editor" className="btn-ghost mt-1 h-11 px-6 text-[14px]">
             {t('audit.back_editor')}
           </Link>
@@ -518,9 +566,11 @@ export default function AuditPage() {
               {requestedName ??
                 (adapted?.evaluator === 'traditional_ml'
                   ? t('evaluator.traditional_ml')
-                  : adapted?.evaluator === 'llm'
-                    ? t('evaluator.llm')
-                    : t('evaluator.rule_based'))}
+                  : adapted?.evaluator === 'multimodel_router'
+                    ? t('evaluator.multimodel_router')
+                    : adapted?.evaluator === 'llm'
+                      ? t('evaluator.llm')
+                      : t('evaluator.rule_based'))}
             </strong>
           </span>
           {backendDetail && (

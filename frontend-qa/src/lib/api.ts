@@ -169,7 +169,7 @@ export const uploadDocumentPdf = async (
 
 /* ---------------- Audits API (Tahap 2 Pipeline) ---------------- */
 
-export type EvaluatorId = 'rule_based' | 'traditional_ml' | 'llm';
+export type EvaluatorId = 'rule_based' | 'traditional_ml' | 'multimodel_router' | 'llm';
 
 export interface CreateAuditPayload {
   konten: string;
@@ -177,6 +177,7 @@ export interface CreateAuditPayload {
   tipe_masukan?: string;
   id_dokumen?: number | null;
   evaluator?: EvaluatorId;
+  ml_model?: string | null;
 }
 
 export interface BackendAuditFinding {
@@ -300,6 +301,8 @@ export interface BackendAuditHistoryItem {
   skor_kualitas: number;
   status_revisi: string;
   status_audit: string;
+  evaluator?: EvaluatorId | string | null;
+  model_version?: string | null;
 }
 
 export interface BackendAuditHistoryResponse {

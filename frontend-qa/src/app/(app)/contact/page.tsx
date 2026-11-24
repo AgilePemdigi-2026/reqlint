@@ -6,12 +6,11 @@ import { PageHeader } from '@/components/app-shell';
 import { useToast } from '@/components/providers';
 import { useT } from '@/lib/i18n';
 
-const TEAM_MEMBERS = [
-  'Fajar Akbar Putra',
-  'Bimantara Jati Purnama',
-  'Anggota Tim 3',
-  'Anggota Tim 4',
-  'Anggota Tim 5',
+const TEAM_MEMBERS: ReadonlyArray<{ name: string; role: string }> = [
+  { name: 'Mochamad Farhan Akbar', role: 'Project Manager & Backend/DevOps Engineer' },
+  { name: 'Daniel Purnomo', role: 'ML Engineer & Team Coordinator' },
+  { name: 'Bima Akbar Rizqullah', role: 'Frontend Developer' },
+  { name: 'Andreas Pratama Syahputra', role: 'QA Engineer & Database' },
 ];
 
 export default function ContactPage() {
@@ -126,25 +125,28 @@ export default function ContactPage() {
             <div className="mt-4 space-y-4 text-[14px]">
               <div className="flex items-start gap-3">
                 <Mail size={18} className="mt-0.5 shrink-0 text-accent" />
-                <div>
+                <div className="min-w-0">
                   <p className="font-medium">{t('contact.info_email')}</p>
-                  <a href="mailto:support@reqlint.app" className="text-muted hover:text-accent hover:underline">
-                    support@reqlint.app
+                  <a
+                    href="mailto:mochamad.farhan.akbar-2024@fst.unair.ac.id"
+                    className="break-all text-muted hover:text-accent hover:underline"
+                  >
+                    mochamad.farhan.akbar-2024@fst.unair.ac.id
                   </a>
                 </div>
               </div>
 
               <div className="flex items-start gap-3">
                 <Github size={18} className="mt-0.5 shrink-0 text-accent" />
-                <div>
+                <div className="min-w-0">
                   <p className="font-medium">{t('contact.info_github')}</p>
                   <a
-                    href="https://github.com/reqlint"
+                    href="https://github.com/AgilePemdigi-2026/reqlint"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-muted hover:text-accent hover:underline"
+                    className="break-all text-muted hover:text-accent hover:underline"
                   >
-                    github.com/reqlint
+                    github.com/AgilePemdigi-2026/reqlint
                   </a>
                 </div>
               </div>
@@ -164,13 +166,16 @@ export default function ContactPage() {
               <Users size={18} className="text-accent" />
               {t('contact.info_team')}
             </h3>
-            <ul className="mt-3 space-y-2">
-              {TEAM_MEMBERS.map((name) => (
-                <li key={name} className="flex items-center gap-2.5 text-[14px]">
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-line/[0.07] text-[11px] font-semibold">
+            <ul className="mt-3 space-y-3">
+              {TEAM_MEMBERS.map(({ name, role }) => (
+                <li key={name} className="flex items-start gap-2.5 text-[14px]">
+                  <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-line/[0.07] text-[11px] font-semibold">
                     {name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
                   </span>
-                  {name}
+                  <div className="min-w-0 leading-snug">
+                    <p className="font-medium text-ink">{name}</p>
+                    <p className="text-[12.5px] text-muted">{role}</p>
+                  </div>
                 </li>
               ))}
             </ul>

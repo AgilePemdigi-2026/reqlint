@@ -18,7 +18,7 @@ Scoring-framework decision (Task 06 design update):
 from typing import Any, Dict, List, Optional
 
 CRITERIA = ["independent", "negotiable", "valuable", "estimable", "small", "testable"]
-EVALUATORS = {"rule_based", "traditional_ml", "llm"}
+EVALUATORS = {"rule_based", "traditional_ml", "multimodel_router", "llm"}
 VALID_LABELS = {"PASS", "FAIL", "INSUFFICIENT_EVIDENCE"}
 
 # Initial equal weighting (Task 06 scoring decision). Kept as an explicit map

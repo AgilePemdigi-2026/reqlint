@@ -1,6 +1,12 @@
 import { describe, expect, it, afterEach } from 'vitest';
 import { translations, t, setUILocale, getUILocale } from './i18n';
-import { EVALUATOR_OPTIONS, DEFAULT_EVALUATOR } from './evaluator-options';
+import {
+  EVALUATOR_OPTIONS,
+  DEFAULT_EVALUATOR,
+  ANALYZER_CATEGORY_OPTIONS,
+  ML_MODEL_OPTIONS,
+  resolveEvaluatorPayload,
+} from './evaluator-options';
 
 describe('i18n — Task 08 dictionary parity', () => {
   it('every key has a non-empty id and en translation', () => {
@@ -35,8 +41,13 @@ describe('i18n — Task 08 dictionary parity', () => {
 });
 
 describe('evaluator options — Task 08', () => {
-  it('exposes exactly three selectable evaluators with rule_based default', () => {
-    expect(EVALUATOR_OPTIONS.map((o) => o.id)).toEqual(['rule_based', 'traditional_ml', 'llm']);
+  it('exposes all four selectable evaluators with rule_based default', () => {
+    expect(EVALUATOR_OPTIONS.map((o) => o.id)).toEqual([
+      'rule_based',
+      'traditional_ml',
+      'multimodel_router',
+      'llm',
+    ]);
     expect(DEFAULT_EVALUATOR).toBe('rule_based');
   });
 
@@ -44,5 +55,36 @@ describe('evaluator options — Task 08', () => {
     for (const opt of EVALUATOR_OPTIONS) {
       expect(translations[opt.labelKey], opt.labelKey).toBeDefined();
     }
+    for (const cat of ANALYZER_CATEGORY_OPTIONS) {
+      expect(translations[cat.labelKey], cat.labelKey).toBeDefined();
+    }
+    for (const model of ML_MODEL_OPTIONS) {
+      expect(translations[model.labelKey], model.labelKey).toBeDefined();
+    }
+  });
+
+  it('resolves granular ML model selections to the exact backend evaluator and ml_model', () => {
+    expect(resolveEvaluatorPayload('rule_based')).toEqual({ evaluator: 'rule_based' });
+    expect(resolveEvaluatorPayload('llm')).toEqual({ evaluator: 'llm' });
+    expect(resolveEvaluatorPayload('machine_learning', 'v1_logistic_regression')).toEqual({
+      evaluator: 'traditional_ml',
+      ml_model: 'v1_logistic_regression',
+    });
+    expect(resolveEvaluatorPayload('machine_learning', 'v2_auto_router')).toEqual({
+      evaluator: 'multimodel_router',
+      ml_model: 'v2_auto_router',
+    });
+    expect(resolveEvaluatorPayload('machine_learning', 'v2_logistic_regression')).toEqual({
+      evaluator: 'multimodel_router',
+      ml_model: 'v2_logistic_regression',
+    });
+    expect(resolveEvaluatorPayload('machine_learning', 'v2_decision_tree')).toEqual({
+      evaluator: 'multimodel_router',
+      ml_model: 'v2_decision_tree',
+    });
+    expect(resolveEvaluatorPayload('machine_learning', 'v2_complement_nb')).toEqual({
+      evaluator: 'multimodel_router',
+      ml_model: 'v2_complement_nb',
+    });
   });
 });

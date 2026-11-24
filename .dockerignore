@@ -49,6 +49,9 @@ pm-docs/*
 !pm-docs/rubrics
 pm-docs/rubrics/*
 !pm-docs/rubrics/reqlint_invest_models.pkl
+!pm-docs/rubrics/models
+pm-docs/rubrics/models/*
+!pm-docs/rubrics/models/reqlint_multimodel_router.pkl
 features
 behave.ini
 run_bdd.py
