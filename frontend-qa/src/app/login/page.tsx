@@ -90,14 +90,10 @@ export default function LoginPage() {
           placeholder={t('login.password_placeholder')}
           error={errors.password}
         />
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => toast(t('login.help_reset'))}
-            className="text-[13.5px] font-medium text-accent hover:underline"
-          >
+                <div className="flex justify-end">
+          <Link href="/forgot-password" className="text-[13.5px] font-medium text-accent hover:underline">
             {t('login.forgot')}
-          </button>
+          </Link>
         </div>
 
         {errors.form && (
