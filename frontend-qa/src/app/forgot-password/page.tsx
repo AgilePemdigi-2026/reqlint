@@ -16,6 +16,7 @@ export default function ForgotPasswordPage() {
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    console.log('submit diklik');
     const form = new FormData(e.currentTarget);
     const email = (form.get('email') as string)?.trim();
     if (!email) return;
@@ -27,7 +28,19 @@ export default function ForgotPasswordPage() {
       await apiForgotPassword({ email });
       setSent(true);
     } catch (err: any) {
-      // Tetap tampilkan pesan sukses untuk mencegah user enumeration
+      // Lihat penyebab sebenarnya di Console browser (F12).
+      console.error('forgot-password gagal:', err);
+
+      const status = err?.response?.status ?? err?.status;
+
+      // Tidak ada status (jaringan/CORS/backend mati) atau error server: beri tahu user.
+      if (!status || status >= 500) {
+        setError('Tidak dapat menghubungi server. Coba lagi beberapa saat.');
+        return;
+      }
+
+      // Error 4xx (mis. email tidak terdaftar): tetap tampilkan sukses
+      // agar orang lain tidak bisa menebak email mana yang terdaftar.
       setSent(true);
     } finally {
       setBusy(false);
@@ -88,4 +101,3 @@ export default function ForgotPasswordPage() {
     </AuthShell>
   );
 }
-
