@@ -1,10 +1,11 @@
 'use client';
 
-import { Mail, Github, Users, GraduationCap, Send, Loader2, CheckCircle2 } from 'lucide-react';
+import { Mail, Github, Users, GraduationCap, Send, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { useState } from 'react';
 import { PageHeader } from '@/components/app-shell';
 import { useToast } from '@/components/providers';
 import { useT } from '@/lib/i18n';
+import { apiSendContact, extractApiError } from '@/lib/api';
 
 const TEAM_MEMBERS = [
   'Fajar Akbar Putra',
@@ -19,21 +20,39 @@ export default function ContactPage() {
   const t = useT();
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const formEl = e.currentTarget;
+    const form = new FormData(formEl);
+    const name = ((form.get('name') as string) || '').trim();
+    const email = ((form.get('email') as string) || '').trim();
+    const subject = ((form.get('subject') as string) || '').trim();
+    const message = ((form.get('message') as string) || '').trim();
+    const website = ((form.get('website') as string) || '').trim();
+
+    if (name.length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || subject.length < 3 || message.length < 10) {
+      setError(t('contact.validation_error'));
+      setSent(false);
+      return;
+    }
+
     setBusy(true);
+    setSent(false);
+    setError('');
 
-    // Simulasi pengiriman (karena belum ada backend endpoint contact)
-    await new Promise((r) => setTimeout(r, 1200));
-
-    setBusy(false);
-    setSent(true);
-    toast(t('contact.success'));
-
-    // Reset form
-    (e.target as HTMLFormElement).reset();
-    setTimeout(() => setSent(false), 4000);
+    try {
+      await apiSendContact({ name, email, subject, message, website });
+      setSent(true);
+      toast(t('contact.success'));
+      formEl.reset();
+    } catch (err) {
+      const { message: apiMessage } = extractApiError(err);
+      setError(apiMessage || t('contact.send_failed'));
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -56,7 +75,16 @@ export default function ContactPage() {
             </div>
           )}
 
-          <form onSubmit={onSubmit} className="mt-5 space-y-4">
+          {error && (
+            <div role="alert" className="mt-4 flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-[13.5px] text-rose-700 dark:bg-rose-400/10 dark:text-rose-300">
+              <ShieldAlert size={16} className="shrink-0" />
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={onSubmit} noValidate className="mt-5 space-y-4">
+            {/* Honeypot anti-spam field */}
+            <input type="text" name="website" tabIndex={-1} autoComplete="off" className="hidden" aria-hidden="true" />
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-[13px] font-medium">{t('contact.name')}</label>

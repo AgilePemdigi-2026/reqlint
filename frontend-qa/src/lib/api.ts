@@ -404,6 +404,17 @@ export const apiResetPassword = async (payload: {
   return response.data;
 };
 
+export const apiSendContact = async (payload: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  website?: string;
+}): Promise<BackendEnvelope<{ delivered: boolean }>> => {
+  const response = await apiClient.post<BackendEnvelope<{ delivered: boolean }>>('/contact', payload);
+  return response.data;
+};
+
 export const auditRequirement = async (
   requirementText: string,
   overrideLanguage?: string

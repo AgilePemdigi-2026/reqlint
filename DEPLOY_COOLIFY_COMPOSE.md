@@ -48,6 +48,16 @@ Browser ──▶ Coolify proxy ──▶ frontend (Next.js, internal :3000)
    | `GROQ_API_KEY` | no | required only if `SLM_PROVIDER=openai_compatible` |
    | `CORS_ORIGINS` | no | unnecessary here (same-origin flow); only for direct cross-origin API consumers |
    | `AUDIT_EXECUTION_MODE` | no | keep `inline` (default). `celery` would require Redis, which this stack does not provide |
+   | `SMTP_HOST` | no | SMTP server hostname (e.g. `smtp.gmail.com`, `smtp-relay.brevo.com`, `smtp.resend.com`) — required for Password Reset & Contact Us |
+   | `SMTP_PORT` | no | `587` (STARTTLS) or `465` (SSL) |
+   | `SMTP_USERNAME` | no | SMTP login username |
+   | `SMTP_PASSWORD` | no | SMTP password / App Password / API key (set as secret in Coolify UI) |
+   | `SMTP_FROM` | no | Sender address (e.g. `noreply@yourdomain.com` or your Gmail address) |
+   | `SMTP_FROM_NAME` | no | Sender display name (default `ReqLint`) |
+   | `SMTP_USE_TLS` | no | `true` for port `587` |
+   | `SMTP_USE_SSL` | no | `true` for port `465` (`false` for `587`) |
+   | `PUBLIC_BASE_URL` | no | Public frontend URL (e.g. `https://<domain>`) used in password-reset links |
+   | `CONTACT_RECIPIENT_EMAIL` | no | Destination inbox for Contact Us messages |
 
    No build-arg configuration is needed in the UI: the compose file passes
    `NEXT_PUBLIC_API_URL=/api/v1` and `API_PROXY_TARGET=http://backend:8000`
