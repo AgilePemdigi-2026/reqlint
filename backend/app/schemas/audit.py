@@ -8,7 +8,11 @@ class CreateAuditRequest(BaseModel):
     id_dokumen: Optional[int] = None
     evaluator: str = Field(
         default="rule_based",
-        description="rule_based | traditional_ml | llm (Task 06 evaluator selection)"
+        description="rule_based | traditional_ml | multimodel_router | llm (evaluator selection)"
+    )
+    ml_model: Optional[str] = Field(
+        default=None,
+        description="Optional granular ML model: v1_logistic_regression | v2_auto_router | v2_logistic_regression | v2_decision_tree | v2_complement_nb"
     )
 
 class ApplyAuditRequest(BaseModel):

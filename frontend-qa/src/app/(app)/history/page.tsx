@@ -64,6 +64,8 @@ export default function HistoryPage() {
           // P0/FUNC-06: bawa skor & status TERSIMPAN dari backend.
           backendScore: item.skor_kualitas,
           backendStatus: item.status_audit,
+          requestedEvaluator: item.evaluator ?? null,
+          modelVersion: item.model_version ?? null,
         }));
         syncAudits(backendAudits);
       } catch (err) {
@@ -251,6 +253,22 @@ export default function HistoryPage() {
                   {formatDate(audit.createdAt, uiLocale)}
                   <span aria-hidden>·</span>
                   {audit.language === 'en' ? 'EN' : 'ID'}
+                  {audit.requestedEvaluator && (
+                    <>
+                      <span aria-hidden>·</span>
+                      <span>
+                        {t(`evaluator.${audit.requestedEvaluator}`) !== `evaluator.${audit.requestedEvaluator}`
+                          ? t(`evaluator.${audit.requestedEvaluator}`)
+                          : audit.requestedEvaluator}
+                      </span>
+                    </>
+                  )}
+                  {audit.modelVersion && (
+                    <>
+                      <span aria-hidden>·</span>
+                      <code className="text-[11px]">{audit.modelVersion}</code>
+                    </>
+                  )}
                 </p>
                 <p className="mt-1 truncate text-[15px] font-semibold">{audit.title || t('history.fallback_title')}</p>
                 <p className="mt-0.5 truncate text-[12.5px] text-muted">{(audit.text || audit.title || '').replace(/\s+/g, ' ')}</p>

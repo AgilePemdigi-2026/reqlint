@@ -21,6 +21,7 @@ export interface Audit {
   /** Task 10: evaluator yang diminta pengguna saat membuat audit ini
    * (provenance — dipakai untuk status processing dan riwayat). */
   requestedEvaluator?: string | null;
+  modelVersion?: string | null;
 }
 
 export interface Draft {

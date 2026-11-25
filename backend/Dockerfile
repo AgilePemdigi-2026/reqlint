@@ -23,6 +23,8 @@ COPY ai-engine /app/ai-engine
 # Task 06: make the trained Traditional ML bundle available for genuine
 # model inference in deployment (InvestMLService loads this path).
 COPY pm-docs/rubrics/reqlint_invest_models.pkl /app/pm-docs/rubrics/reqlint_invest_models.pkl
+# Multi-Model Router V2 bundle (MultiModelRouterService loads this path).
+COPY pm-docs/rubrics/models/reqlint_multimodel_router.pkl /app/pm-docs/rubrics/models/reqlint_multimodel_router.pkl
 
 WORKDIR /app/backend
 

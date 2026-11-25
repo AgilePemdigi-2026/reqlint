@@ -15,6 +15,7 @@ from app.services.nlp_stage1 import NLPStage1Service
 from app.services.nlp_stage2 import NLPStage2Service, LLMProviderUnavailableError
 from app.services.scoring import ScoringService
 from app.services.invest_ml_service import InvestMLService, MLEvaluatorUnavailableError
+from app.services.multimodel_router_service import MultiModelRouterService
 from app.services.evaluation_contract import (
     build_evaluation_result,
     build_dimensions,
@@ -68,6 +69,8 @@ class AuditService:
         try:
             if evaluator == "traditional_ml":
                 evaluation = await cls._evaluate_traditional_ml(audit, text_to_analyze, db)
+            elif evaluator == "multimodel_router":
+                evaluation = await cls._evaluate_multimodel_router(audit, text_to_analyze, db)
             elif evaluator == "llm":
                 evaluation = await cls._evaluate_llm(audit, text_to_analyze, db)
             else:
@@ -251,6 +254,36 @@ class AuditService:
         return contract
 
     @classmethod
+    async def _evaluate_multimodel_router(cls, audit, text_to_analyze: str, db: AsyncSession) -> Dict[str, Any]:
+        """Evaluator D — Multi-Model White-Box & K-Means Router V2 (auto router or direct V2 classifier)."""
+        existing_breakdown = dict(audit.breakdown or {})
+        requested_ml_model = existing_breakdown.get("requested_ml_model")
+        if requested_ml_model in MultiModelRouterService.DIRECT_MODEL_MAP:
+            result = MultiModelRouterService.evaluate_story_direct(text_to_analyze, requested_ml_model)
+        else:
+            result = MultiModelRouterService.evaluate_story_router(text_to_analyze)
+        dimensions = result["dimensions"]
+
+        contract = build_evaluation_result(
+            evaluator="multimodel_router",
+            verdict=overall_verdict(dimensions),
+            score=framework_score(dimensions),
+            dimensions=dimensions,
+            model_version=result.get("model_version"),
+            findings=[],
+            breakdown=None,
+            metadata=result.get("routing_metadata") or {},
+        )
+
+        audit.skor_kualitas = contract["score"] if contract["score"] is not None else 0.0
+        if audit.skor_awal is None:
+            audit.skor_awal = contract["score"]
+        audit.model_version = contract["model_version"]
+        audit.breakdown = {"evaluation": contract}
+        await db.commit()
+        return contract
+
+    @classmethod
     async def _evaluate_llm(cls, audit, text_to_analyze: str, db: AsyncSession) -> Dict[str, Any]:
         """Evaluator C — LLM/SLM classification (real provider required)."""
         result = await NLPStage2Service.classify_story_with_llm(text_to_analyze)
@@ -328,6 +361,21 @@ class AuditService:
                 errors=[{"field": "evaluator", "message": f"evaluator harus salah satu dari {sorted(EVALUATORS)}"}]
             )
 
+        ml_model = payload.ml_model.strip().lower() if payload.ml_model else None
+        if ml_model is not None:
+            valid_by_evaluator = {
+                "traditional_ml": {"v1_logistic_regression"},
+                "multimodel_router": {"v2_auto_router", "v2_logistic_regression", "v2_decision_tree", "v2_complement_nb"},
+            }
+            allowed = valid_by_evaluator.get(evaluator, set())
+            if ml_model not in allowed:
+                raise AppException(
+                    message="Model ML tidak valid untuk evaluator terpilih",
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    error_code="INVALID_ML_MODEL",
+                    errors=[{"field": "ml_model", "message": f"ml_model tidak valid: {ml_model}"}]
+                )
+
         now = datetime.now(timezone.utc)
         draf = DrafKebutuhan(
             id_dokumen=payload.id_dokumen,
@@ -351,7 +399,7 @@ class AuditService:
             skor_awal=None,
             ai_rewrite=None,
             acceptance_criteria=None,
-            breakdown=None,
+            breakdown={"requested_ml_model": ml_model} if ml_model else None,
             error_message=None,
             evaluator=evaluator,
             model_version=None
@@ -795,7 +843,9 @@ class AuditService:
                 "judul_klausul": draf.judul_klausul,
                 "skor_kualitas": audit.skor_kualitas,
                 "status_revisi": draf.status_revisi,
-                "status_audit": audit.status_audit
+                "status_audit": audit.status_audit,
+                "evaluator": getattr(audit, "evaluator", None) or "rule_based",
+                "model_version": audit.model_version,
             }
             for audit, draf in rows
         ]
