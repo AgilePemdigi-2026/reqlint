@@ -16,10 +16,12 @@ export default function ForgotPasswordPage() {
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    console.log('submit diklik');
     const form = new FormData(e.currentTarget);
-    const email = (form.get('email') as string)?.trim();
-    if (!email) return;
+    const email = ((form.get('email') as string) || '').trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError(t('forgot.invalid_email'));
+      return;
+    }
 
     setBusy(true);
     setError('');
@@ -28,14 +30,11 @@ export default function ForgotPasswordPage() {
       await apiForgotPassword({ email });
       setSent(true);
     } catch (err: any) {
-      // Lihat penyebab sebenarnya di Console browser (F12).
-      console.error('forgot-password gagal:', err);
-
       const status = err?.response?.status ?? err?.status;
 
       // Tidak ada status (jaringan/CORS/backend mati) atau error server: beri tahu user.
       if (!status || status >= 500) {
-        setError('Tidak dapat menghubungi server. Coba lagi beberapa saat.');
+        setError(t('forgot.server_error'));
         return;
       }
 

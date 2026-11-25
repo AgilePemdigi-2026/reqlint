@@ -13,6 +13,7 @@ from app.schemas.auth import RegisterRequest, LoginRequest, ForgotPasswordReques
 from app.core.security import hash_password, verify_password, dummy_verify_password, create_access_token
 from app.core.errors import AppException
 from app.core.config import settings
+from app.services.email_service import EmailService, EmailDeliveryError
 
 logger = logging.getLogger("reqlint.auth_service")
 
@@ -134,7 +135,7 @@ class AuthService:
         db.add(reset_token)
         await db.commit()
 
-        if not settings.SMTP_HOST:
+        if not EmailService.is_configured():
             logger.warning(
                 "SMTP not configured (SMTP_HOST empty): password-reset token was "
                 "created but NOT delivered. Configure SMTP_HOST/SMTP_PORT/"
@@ -150,27 +151,21 @@ class AuthService:
             f"{reset_link}\n\n"
             "Jika Anda tidak meminta reset ini, abaikan email ini."
         )
-        import asyncio
-        import smtplib
-        from email.message import EmailMessage
-
-        def _send() -> None:
-            msg = EmailMessage()
-            msg["Subject"] = "ReqLint — Reset Password"
-            msg["From"] = settings.SMTP_FROM
-            msg["To"] = user.alamat_email
-            msg.set_content(body)
-            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
-                if settings.SMTP_USE_TLS:
-                    smtp.starttls()
-                if settings.SMTP_USERNAME:
-                    smtp.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-                smtp.send_message(msg)
-
-        # stdlib smtplib is blocking; run it off the event loop.
-        await asyncio.to_thread(_send)
-        # Security: log delivery only — NEVER the raw token.
-        logger.info(f"Password-reset email delivered to {user.alamat_email}")
+        try:
+            await EmailService.send_email(
+                to_email=user.alamat_email,
+                subject="ReqLint — Reset Password",
+                body=body,
+            )
+            # Security: log delivery only — NEVER the raw token.
+            logger.info(f"Password-reset email delivered to user_id={user.id_user}")
+        except EmailDeliveryError as exc:
+            # Anti-enumeration: keep returning 200 to caller, but log failure clearly.
+            logger.error(
+                "Password-reset email delivery failed for user_id=%s (code=%s)",
+                user.id_user,
+                exc.code,
+            )
 
     @staticmethod
     async def reset_password(db: AsyncSession, payload: ResetPasswordRequest) -> None:

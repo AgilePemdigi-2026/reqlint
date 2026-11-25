@@ -46,6 +46,17 @@ services:
       SLM_MODEL: ${SLM_MODEL:-}
       SLM_TIMEOUT_SECONDS: ${SLM_TIMEOUT_SECONDS:-4}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
+      # Email / SMTP (Password Reset & Contact Us — configure in Coolify UI)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-reqlint@localhost}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-ReqLint}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      CONTACT_RECIPIENT_EMAIL: ${CONTACT_RECIPIENT_EMAIL:-}
     volumes:
       - reqlint_data:/app/backend/data
     expose:
